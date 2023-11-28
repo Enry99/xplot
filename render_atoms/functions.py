@@ -63,7 +63,7 @@ def render_image(atoms, label = str,
 
     if(povray): #use POVray renderer (high quality, CPU intensive)
         config_copy = atoms.copy()
-        config_copy.set_pbc([0,0,0]) #to avoid drawing bonds with invisible replicas
+        #config_copy.set_pbc([0,0,0]) #to avoid drawing bonds with invisible replicas
 
         write('{0}.pov'.format(label), 
             atoms, 
