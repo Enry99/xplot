@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+Created on Tue 28 Nov 2023
+
+@author: Enrico Pedretti
+
+Small program to render an image using ASE and povray
+"""
+VERSION = 0.1
+
+import sys
+import argparse
+from functions import start_rendering
+
+
+
+def cli_parse():
+    parser = argparse.ArgumentParser(
+        description='Options for image rendering'
+        )
+
+    parser.add_argument('--v', '--version', action='version', version='%(prog)s '+str(VERSION))
+
+    parser.add_argument('filename') 
+    parser.add_argument('-i','--index', type=str, default='-1', 
+                        help="Index of the frame to be rendered, e.g. '0' (first), '-1' (last), ':' (all), '::10' (one every 10 frames). Default = -1")
+    parser.add_argument('-m','--movie', action='store_true', default=False, help='Create movie from the frames. Default = False')
+    parser.add_argument('-f', '--framerate', type=int, default=10, help='Framerate of the movie (frames per second). Default = 10.')
+    parser.add_argument('-np','--nopov', action='store_true', default=False, help='Do not use povray for rendering. Default = use povray')
+    parser.add_argument('-w', '--width_resolution', type=int, default=700, help='Horizontal resolution in pixels. Defaul = 700')
+    parser.add_argument('-r','--rotations', type=str, default='90x', 
+                        help="List of rotations for the visualization, e.g. '10z,90x'. Default = '90x' (front view). Top view is empty ('')")
+
+    args = parser.parse_args()
+
+    return args
+
+
+
+def main():
+
+    args = cli_parse()
+
+    start_rendering(filename = args['filename'],
+                    index = args['index'], 
+                    movie = args['movie'], 
+                    framerate = args['framerate'], 
+                    povray = not args['nopov'], 
+                    width_res = 700, 
+                    rotations = '90x')
+
+
+if __name__ == '__main__':
+    sys.exit(main())
