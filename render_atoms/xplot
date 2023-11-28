@@ -29,8 +29,8 @@ def cli_parse():
     parser.add_argument('-m','--movie', action='store_true', default=False, help='Create movie from the frames. Default = False')
     parser.add_argument('-f', '--framerate', type=int, default=10, help='Framerate of the movie (frames per second). Default = 10.')
     parser.add_argument('-np','--nopov', action='store_true', default=False, help='Do not use povray for rendering. Default = use povray')
-    parser.add_argument('-w', '--width_resolution', type=int, default=700, help='Horizontal resolution in pixels. Defaul = 700')
-    parser.add_argument('-r','--rotations', type=str, default='90x', 
+    parser.add_argument('-w', '--width-resolution', type=int, default=700, help='Horizontal resolution in pixels. Defaul = 700')
+    parser.add_argument('-r','--rotations', type=str, default='-90x', 
                         help="List of rotations for the visualization, e.g. '10z,90x'. Default = '90x' (front view). Top view is empty ('')")
 
     args = parser.parse_args()
@@ -43,13 +43,13 @@ def main():
 
     args = cli_parse()
 
-    start_rendering(filename = args['filename'],
-                    index = args['index'], 
-                    movie = args['movie'], 
-                    framerate = args['framerate'], 
-                    povray = not args['nopov'], 
-                    width_res = 700, 
-                    rotations = '90x')
+    start_rendering(filename = args.filename,
+                    index = args.index, 
+                    movie = args.movie, 
+                    framerate = args.framerate, 
+                    povray = not args.nopov, 
+                    width_res = args.width_resolution, 
+                    rotations = args.rotations)
 
 
 if __name__ == '__main__':

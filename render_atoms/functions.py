@@ -120,7 +120,7 @@ def start_rendering(filename : str,
             print('Movie generated.')
     else:
         print('Rendering image...')
-        render_image(atoms, label)
+        render_image(atoms, label, povray=povray, width_res=width_res, rotations=rotations, custom_colors=custom_colors)
         print('Rendering complete.')
 
     print('Job done.')

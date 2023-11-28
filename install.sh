@@ -8,6 +8,6 @@ else
 echo "render_atoms already found on PATH. Please remove it from .bashrc if you want to change the script location."
 fi
 
-chmod +x render_atoms/render_image
+chmod +x render_atoms/xplot
 
 source ~/.bashrc
