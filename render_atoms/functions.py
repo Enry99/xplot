@@ -24,7 +24,7 @@ def render_image(atoms, label = str,
                  povray : bool = True, 
                  width_res : int = 700, 
                  rotations : str = '-90x', 
-                 custom_colors = None):
+                 custom_settings = None):
      
     #cut the vacuum above the top slab
     #cell = atoms.cell.lengths()
@@ -36,11 +36,11 @@ def render_image(atoms, label = str,
     from ase.data.colors import jmol_colors
     ATOM_COLORS = jmol_colors.copy()
 
-    if custom_colors is not None:
-        USER_COLORS       = custom_colors["atomic_colors"] if "atomic_colors" in custom_colors else []
-        ATOMIC_RADIUS     = custom_colors["bond_radius"] if "bond_radius" in custom_colors else ATOMIC_RADIUS_DEFAULT
-        BOND_RADIUS       = custom_colors["bond_radius"] if "bond_radius" in custom_colors else BOND_RADIUS_DEFAULT
-        CELLLINEWIDTH     = custom_colors["cell_line_width"] if "cell_line_width" in custom_colors else 0
+    if custom_settings is not None:
+        USER_COLORS       = custom_settings["atomic_colors"] if "atomic_colors" in custom_settings else []
+        ATOMIC_RADIUS     = custom_settings["bond_radius"] if "bond_radius" in custom_settings else ATOMIC_RADIUS_DEFAULT
+        BOND_RADIUS       = custom_settings["bond_radius"] if "bond_radius" in custom_settings else BOND_RADIUS_DEFAULT
+        CELLLINEWIDTH     = custom_settings["cell_line_width"] if "cell_line_width" in custom_settings else 0
     else:
         USER_COLORS  = []
         ATOMIC_RADIUS     = ATOMIC_RADIUS_DEFAULT
@@ -100,18 +100,18 @@ def start_rendering(filename : str,
     label = os.path.splitext(filename)[0]
     print('File was read successfully.')
 
-    if os.path.isfile("custom_colors.json"):
-        with open("custom_colors.json", "r") as f:
-            custom_colors = json.load(f)
+    if os.path.isfile("custom_settings.json"):
+        with open("custom_settings.json", "r") as f:
+            custom_settings = json.load(f)
             print("Custom colors read from file.")
     else:
-        custom_colors = None
+        custom_settings = None
 
     if type(atoms) is list:
 
         print(f'Rendering {len(atoms)} images...')
         for i, atom in enumerate(atoms):
-            render_image(atom, label + '_{:05d}'.format(i), povray=povray, width_res=width_res, rotations=rotations, custom_colors=custom_colors)
+            render_image(atom, label + '_{:05d}'.format(i), povray=povray, width_res=width_res, rotations=rotations, custom_settings=custom_settings)
         print('Rendering complete.')
 
         if movie:
@@ -120,7 +120,7 @@ def start_rendering(filename : str,
             print('Movie generated.')
     else:
         print('Rendering image...')
-        render_image(atoms, label, povray=povray, width_res=width_res, rotations=rotations, custom_colors=custom_colors)
+        render_image(atoms, label, povray=povray, width_res=width_res, rotations=rotations, custom_settings=custom_settings)
         print('Rendering complete.')
 
     print('Job done.')
