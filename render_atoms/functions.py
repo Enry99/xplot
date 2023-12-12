@@ -100,8 +100,13 @@ def start_rendering(filename : str,
     label = os.path.splitext(filename)[0]
     print('File was read successfully.')
 
+    custom_settings_path = None
     if os.path.isfile("custom_settings.json"):
-        with open("custom_settings.json", "r") as f:
+        custom_settings_path = 'custom_settings.json'
+    elif os.path.isfile(f"{os.path.dirname(__file__).rsplit('/',1)[0]}/custom_settings.json"):
+        custom_settings_path = f"{os.path.dirname(__file__).rsplit('/',1)[0]}/custom_settings.json"
+    if custom_settings_path is not None:
+        with open(custom_settings_path, "r") as f:
             custom_settings = json.load(f)
             print("Custom colors read from file.")
     else:
