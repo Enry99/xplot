@@ -12,18 +12,23 @@ Functions to render an image and to setup the rendering
 
 from ase.io.pov import get_bondpairs
 from ase.io import read, write
+from ase import Atoms
 import json
 import os
+import numpy as np
 
 #scaling factors for drawing atoms and bonds
 ATOMIC_RADIUS_DEFAULT = 0.65
 BOND_RADIUS_DEFAULT = 0.8
 
 
-def render_image(atoms, label = str, 
+def render_image(atoms : Atoms, 
+                 label : str, 
                  povray : bool = True, 
                  width_res : int = 700, 
-                 rotations : str = '-90x', 
+                 rotations : str = '-90x',
+                 depth_cueing : bool = False,
+                 range_cut : tuple = None,
                  custom_settings = None):
      
     #cut the vacuum above the top slab
@@ -31,6 +36,8 @@ def render_image(atoms, label = str,
     #cell[2] = np.max([atom.z for atom in atoms]) + 2
     #atoms.set_cell(cell, scale_atoms = False)
 
+    if range_cut is not None:
+        del atoms[[atom.index for atom in atoms if atom.z < range_cut[0] or atom.z > range_cut[1]]]
 
     #set custom colors if present ################################################
     from ase.data.colors import jmol_colors
@@ -54,10 +61,12 @@ def render_image(atoms, label = str,
 
 
     #fading color for lower layers in top view
-    #zmax = max([atom.z for atom in atoms])
-    #zmin = min([atom.z for atom in atoms])
-    #delta = zmax - zmin
-    #colors_top = [ (colors[atom.index] + (np.array([1,1,1]) - colors[atom.index])*(zmax - atom.z)/delta).round(4) for atom in atoms ]
+    if (False):
+        print("DC!")
+        zmax = max([atom.z for atom in atoms])
+        zmin = min([atom.z for atom in atoms])
+        delta = zmax - zmin
+        colors = [ (colors[atom.index] + (np.array([1,1,1]) - colors[atom.index])*(zmax - atom.z)/delta).round(4) for atom in atoms ]
     ############################################################################
 
 
@@ -74,10 +83,13 @@ def render_image(atoms, label = str,
             povray_settings=dict(canvas_width=width_res, 
                                  celllinewidth=CELLLINEWIDTH, 
                                  transparent=False, 
-                                 camera_type='orthographic', 
-                                 camera_dist=50., 
+                                 camera_type='orthographic',
+                                 #depth_cueing = True,
+                                 #cue_density = 0.008, 
+                                 camera_dist=1, 
                                  bondatoms=get_bondpairs(config_copy, radius=BOND_RADIUS)
                                  #camera_type='perspective'
+                                 #bondlinewidth
                                 )                                
         ).render()
         os.remove('{0}.pov'.format(label))
@@ -93,7 +105,9 @@ def start_rendering(filename : str,
                     framerate : int = 10, 
                     povray : bool = True, 
                     width_res : int = 700, 
-                    rotations : str = '90x'
+                    rotations : str = '90x',
+                    depth_cueing : bool = False,
+                    range_cut : tuple = None
                     ):
     
     atoms = read(filename, index=index) #read file (any format supported by ASE)
@@ -116,7 +130,14 @@ def start_rendering(filename : str,
 
         print(f'Rendering {len(atoms)} images...')
         for i, atom in enumerate(atoms):
-            render_image(atom, label + '_{:05d}'.format(i), povray=povray, width_res=width_res, rotations=rotations, custom_settings=custom_settings)
+            render_image(atom, 
+                         label + '_{:05d}'.format(i), 
+                         povray=povray, 
+                         width_res=width_res, 
+                         rotations=rotations, 
+                         depth_cueing=depth_cueing, 
+                         range_cut=range_cut, 
+                         custom_settings=custom_settings)
         print('Rendering complete.')
 
         if movie:
@@ -125,7 +146,14 @@ def start_rendering(filename : str,
             print('Movie generated.')
     else:
         print('Rendering image...')
-        render_image(atoms, label, povray=povray, width_res=width_res, rotations=rotations, custom_settings=custom_settings)
+        render_image(atoms, 
+                     label, 
+                     povray=povray, 
+                     width_res=width_res, 
+                     rotations=rotations,
+                     depth_cueing=depth_cueing, 
+                     range_cut=range_cut, 
+                     custom_settings=custom_settings)
         print('Rendering complete.')
 
     print('Job done.')

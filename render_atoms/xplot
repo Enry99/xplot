@@ -30,8 +30,12 @@ def cli_parse():
     parser.add_argument('-f', '--framerate', type=int, default=10, help='Framerate of the movie (frames per second). Default = 10.')
     parser.add_argument('-np','--nopov', action='store_true', default=False, help='Do not use povray for rendering. Default = use povray')
     parser.add_argument('-w', '--width-resolution', type=int, default=700, help='Horizontal resolution in pixels. Defaul = 700')
-    parser.add_argument('-r','--rotations', type=str, default='-90x', 
-                        help="List of rotations for the visualization, e.g. '10z,90x'. Default = '90x' (front view). Top view is empty ('')")
+    parser.add_argument('-r','--rotations', type=str, default='', 
+                        help="List of rotations for the visualization, e.g. '10z,90x'. Default = '' (top view). Front view is '90x'")
+    parser.add_argument('-dc','--depth-cueing', action='store_true', default=False, help='Enable depth cueing')
+    parser.add_argument('-rc','--range-cut', nargs=2, type=float, help='Select range [zmin, zmax] to be displayed.')
+
+    #add depth cueing aggressiveness
 
     args = parser.parse_args()
 
@@ -49,7 +53,9 @@ def main():
                     framerate = args.framerate, 
                     povray = not args.nopov, 
                     width_res = args.width_resolution, 
-                    rotations = args.rotations)
+                    rotations = args.rotations,
+                    depth_cueing=args.depth_cueing,
+                    range_cut=args.range_cut)
 
 
 if __name__ == '__main__':
