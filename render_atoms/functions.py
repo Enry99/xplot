@@ -17,20 +17,24 @@ import json
 import os
 import numpy as np
 
-#scaling factors for drawing atoms and bonds
-ATOMIC_RADIUS_DEFAULT = 0.65
-BOND_RADIUS_DEFAULT = 0.8
-
 
 def render_image(atoms : Atoms, 
                  label : str, 
                  povray : bool = True, 
                  width_res : int = 700, 
-                 rotations : str = '-90x',
+                 rotations : str = '',
                  depth_cueing : bool = False,
+                 depth_cueing_intensity : float = 1,
                  range_cut : tuple = None,
                  custom_settings = None):
      
+
+    #scaling factors for drawing atoms and bonds
+    ATOMIC_RADIUS_DEFAULT = 0.6
+    BOND_RADIUS_DEFAULT = 0.8
+    BOND_LINE_WIDTH_DEFAULT = 0.15
+
+
     #cut the vacuum above the top slab
     #cell = atoms.cell.lengths()
     #cell[2] = np.max([atom.z for atom in atoms]) + 2
@@ -45,13 +49,15 @@ def render_image(atoms : Atoms,
 
     if custom_settings is not None:
         USER_COLORS       = custom_settings["atomic_colors"] if "atomic_colors" in custom_settings else []
-        ATOMIC_RADIUS     = custom_settings["bond_radius"] if "bond_radius" in custom_settings else ATOMIC_RADIUS_DEFAULT
+        ATOMIC_RADIUS     = custom_settings["atomic_radius"] if "atomic_radius" in custom_settings else ATOMIC_RADIUS_DEFAULT
         BOND_RADIUS       = custom_settings["bond_radius"] if "bond_radius" in custom_settings else BOND_RADIUS_DEFAULT
+        BOND_LINE_WIDTH   = custom_settings["bond_line_width"] if "bond_line_width" in custom_settings else BOND_LINE_WIDTH_DEFAULT
         CELLLINEWIDTH     = custom_settings["cell_line_width"] if "cell_line_width" in custom_settings else 0
     else:
         USER_COLORS  = []
         ATOMIC_RADIUS     = ATOMIC_RADIUS_DEFAULT
         BOND_RADIUS       = BOND_RADIUS_DEFAULT
+        BOND_LINE_WIDTH   = BOND_LINE_WIDTH_DEFAULT
         CELLLINEWIDTH     = 0
 
     for color in USER_COLORS:
@@ -61,12 +67,18 @@ def render_image(atoms : Atoms,
 
 
     #fading color for lower layers in top view
-    if (False):
-        print("DC!")
+    if (depth_cueing):
         zmax = max([atom.z for atom in atoms])
         zmin = min([atom.z for atom in atoms])
         delta = zmax - zmin
-        colors = [ (colors[atom.index] + (np.array([1,1,1]) - colors[atom.index])*(zmax - atom.z)/delta).round(4) for atom in atoms ]
+        if depth_cueing_intensity < 0:
+            raise ValueError("depth_cueing_intensity must be >=0.")
+        for atom in atoms:       
+            r,g,b = colors[atom.index] + (np.array([1,1,1]) - colors[atom.index])*(zmax - atom.z)/delta * depth_cueing_intensity
+            if r>1: r=1
+            if g>1: g=1
+            if b>1: b=1
+            colors[atom.index] = [r,g,b]
     ############################################################################
 
 
@@ -84,19 +96,18 @@ def render_image(atoms : Atoms,
                                  celllinewidth=CELLLINEWIDTH, 
                                  transparent=False, 
                                  camera_type='orthographic',
-                                 #depth_cueing = True,
-                                 #cue_density = 0.008, 
+                                 textures = (['pale'] if depth_cueing else ['ase3']) * len(atoms),
                                  camera_dist=1, 
-                                 bondatoms=get_bondpairs(config_copy, radius=BOND_RADIUS)
-                                 #camera_type='perspective'
-                                 #bondlinewidth
+                                 bondatoms=get_bondpairs(config_copy, radius=BOND_RADIUS),
+                                 bondlinewidth=BOND_LINE_WIDTH
                                 )                                
         ).render()
         os.remove('{0}.pov'.format(label))
         os.remove('{0}.ini'.format(label))
 
     else: # use ASE renderer (low quality, does not draw bonds)
-        write(label + '.png', atoms, rotation=rotations, scale = 100, colors=colors)
+        print(label + '.png')
+        write(label + '.png', atoms, format='png', rotation=rotations, scale = 100, colors=colors)
 
 
 def start_rendering(filename : str, 
@@ -105,8 +116,9 @@ def start_rendering(filename : str,
                     framerate : int = 10, 
                     povray : bool = True, 
                     width_res : int = 700, 
-                    rotations : str = '90x',
+                    rotations : str = '',
                     depth_cueing : bool = False,
+                    depth_cueing_intensity : float = 1,
                     range_cut : tuple = None
                     ):
     
@@ -135,7 +147,8 @@ def start_rendering(filename : str,
                          povray=povray, 
                          width_res=width_res, 
                          rotations=rotations, 
-                         depth_cueing=depth_cueing, 
+                         depth_cueing=depth_cueing,
+                         depth_cueing_intensity=depth_cueing_intensity, 
                          range_cut=range_cut, 
                          custom_settings=custom_settings)
         print('Rendering complete.')
@@ -152,6 +165,7 @@ def start_rendering(filename : str,
                      width_res=width_res, 
                      rotations=rotations,
                      depth_cueing=depth_cueing, 
+                     depth_cueing_intensity=depth_cueing_intensity,
                      range_cut=range_cut, 
                      custom_settings=custom_settings)
         print('Rendering complete.')
