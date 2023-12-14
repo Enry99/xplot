@@ -32,7 +32,7 @@ def render_image(atoms : Atoms,
     #scaling factors for drawing atoms and bonds
     ATOMIC_RADIUS_DEFAULT = 0.6
     BOND_RADIUS_DEFAULT = 0.8
-    BOND_LINE_WIDTH_DEFAULT = 0.15
+    BOND_LINE_WIDTH_DEFAULT = 0.1
 
 
     #cut the vacuum above the top slab
