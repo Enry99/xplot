@@ -23,8 +23,7 @@ def render_image(atoms : Atoms,
                  povray : bool = True, 
                  width_res : int = 700, 
                  rotations : str = '',
-                 depth_cueing : bool = False,
-                 depth_cueing_intensity : float = 1,
+                 depth_cueing : float = None,
                  range_cut : tuple = None,
                  custom_settings = None):
      
@@ -67,14 +66,14 @@ def render_image(atoms : Atoms,
 
 
     #fading color for lower layers in top view
-    if (depth_cueing):
+    if (depth_cueing is not None):
         zmax = max([atom.z for atom in atoms])
         zmin = min([atom.z for atom in atoms])
         delta = zmax - zmin
-        if depth_cueing_intensity < 0:
+        if depth_cueing < 0:
             raise ValueError("depth_cueing_intensity must be >=0.")
         for atom in atoms:       
-            r,g,b = colors[atom.index] + (np.array([1,1,1]) - colors[atom.index])*(zmax - atom.z)/delta * depth_cueing_intensity
+            r,g,b = colors[atom.index] + (np.array([1,1,1]) - colors[atom.index])*(zmax - atom.z)/delta * depth_cueing
             if r>1: r=1
             if g>1: g=1
             if b>1: b=1
@@ -110,6 +109,8 @@ def render_image(atoms : Atoms,
         write(label + '.png', atoms, format='png', rotation=rotations, scale = 100, colors=colors)
 
 
+
+
 def start_rendering(filename : str, 
                     index : str = '-1', 
                     movie : bool = False, 
@@ -117,8 +118,7 @@ def start_rendering(filename : str,
                     povray : bool = True, 
                     width_res : int = 700, 
                     rotations : str = '',
-                    depth_cueing : bool = False,
-                    depth_cueing_intensity : float = 1,
+                    depth_cueing : float = None,
                     range_cut : tuple = None
                     ):
     
@@ -148,7 +148,6 @@ def start_rendering(filename : str,
                          width_res=width_res, 
                          rotations=rotations, 
                          depth_cueing=depth_cueing,
-                         depth_cueing_intensity=depth_cueing_intensity, 
                          range_cut=range_cut, 
                          custom_settings=custom_settings)
         print('Rendering complete.')
@@ -165,7 +164,6 @@ def start_rendering(filename : str,
                      width_res=width_res, 
                      rotations=rotations,
                      depth_cueing=depth_cueing, 
-                     depth_cueing_intensity=depth_cueing_intensity,
                      range_cut=range_cut, 
                      custom_settings=custom_settings)
         print('Rendering complete.')
