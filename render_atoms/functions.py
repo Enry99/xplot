@@ -105,8 +105,13 @@ def render_image(atoms : Atoms,
         os.remove('{0}.ini'.format(label))
 
     else: # use ASE renderer (low quality, does not draw bonds)
-        print(label + '.png')
-        write(label + '.png', atoms, format='png', rotation=rotations, scale = 100, colors=colors)
+        write(label + '.png', atoms, 
+              format='png', 
+              radii = ATOMIC_RADIUS, 
+              rotation=rotations, 
+              colors=colors,
+              maxwidth=width_res,
+              scale=100)
 
 
 
