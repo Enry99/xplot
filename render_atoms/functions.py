@@ -23,6 +23,7 @@ def render_image(atoms : Atoms,
                  povray : bool = True, 
                  width_res : int = 700, 
                  rotations : str = '',
+                 supercell : list = [1,1,1],
                  depth_cueing : float = None,
                  range_cut : tuple = None,
                  custom_settings = None):
@@ -33,6 +34,8 @@ def render_image(atoms : Atoms,
     BOND_RADIUS_DEFAULT = 0.8
     BOND_LINE_WIDTH_DEFAULT = 0.1
 
+
+    atoms *= supercell
 
     #cut the vacuum above the top slab
     #cell = atoms.cell.lengths()
@@ -123,6 +126,7 @@ def start_rendering(filename : str,
                     povray : bool = True, 
                     width_res : int = 700, 
                     rotations : str = '',
+                    supercell : list = [1,1,1],
                     depth_cueing : float = None,
                     range_cut : tuple = None
                     ):
@@ -151,7 +155,8 @@ def start_rendering(filename : str,
                          label + '_{:05d}'.format(i), 
                          povray=povray, 
                          width_res=width_res, 
-                         rotations=rotations, 
+                         rotations=rotations,
+                         supercell=supercell,
                          depth_cueing=depth_cueing,
                          range_cut=range_cut, 
                          custom_settings=custom_settings)
@@ -168,6 +173,7 @@ def start_rendering(filename : str,
                      povray=povray, 
                      width_res=width_res, 
                      rotations=rotations,
+                     supercell=supercell,
                      depth_cueing=depth_cueing, 
                      range_cut=range_cut, 
                      custom_settings=custom_settings)
