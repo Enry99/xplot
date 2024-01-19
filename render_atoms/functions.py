@@ -35,7 +35,8 @@ def render_image(atoms : Atoms,
     BOND_LINE_WIDTH_DEFAULT = 0.1
 
 
-    atoms *= supercell
+    if supercell:
+        atoms *= supercell
 
     #cut the vacuum above the top slab
     #cell = atoms.cell.lengths()
