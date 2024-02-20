@@ -45,6 +45,8 @@ def render_image(atoms : Atoms,
 
     if range_cut is not None:
         del atoms[[atom.index for atom in atoms if atom.z < range_cut[0] or atom.z > range_cut[1]]]
+        atoms.translate([0,0,-range_cut[0]]) #shift the atoms to the origin of the new cell
+        atoms.cell[2,2] = range_cut[1] + 2 - range_cut[0] #set the new cell height (+2 to aovid periodic bonding)
 
     #set custom colors if present ################################################
     from ase.data.colors import jmol_colors
