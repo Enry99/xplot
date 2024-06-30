@@ -8,11 +8,11 @@ Created on Tue 28 Nov 2023
 
 Small program to render an image using ASE and povray
 """
-VERSION = 0.1
+VERSION = "0.2"
 
 import sys
 import argparse
-from functions import start_rendering
+from render_atoms.functions import start_rendering
 
 
 
@@ -21,24 +21,33 @@ def cli_parse():
         description='Options for image rendering:'
         )
 
-    parser.add_argument('--v', '--version', action='version', version='%(prog)s '+str(VERSION))
+    parser.add_argument('--v', '--version', action='version', version='%(prog)s '+VERSION)
 
     parser.add_argument('filename', help='Can be in any format readable by ASE (e.g. POSCAR/CONTCAR/vasprun.xml, xyz, cif, pwi/pwo, xsf...). Can also be a trajectory.') 
     parser.add_argument('-i','--index', type=str, default='-1', 
                         help="Index of the frame to be rendered in a trajectory, e.g. '0' (first), '-1' (last), ':' (all), '::10' (one every 10 frames). Default = -1")
-    parser.add_argument('-m','--movie', action='store_true', default=False, help='Create movie from the frames. Default = False')
-    parser.add_argument('-f', '--framerate', type=int, default=10, help='Framerate of the movie (frames per second). Default = 10.')
-    parser.add_argument('-np','--nopov', action='store_true', default=False, help='Do not use povray for rendering. Default = use povray')
-    parser.add_argument('-w', '--width-resolution', type=int, default=700, help='Horizontal resolution in pixels. Defaul = 700')
+    parser.add_argument('-o','--output', type=str, help='Output file name. Default = [filename].png')
+
     parser.add_argument('-r','--rotations', type=str, default='', 
-                        help="List of rotations for the visualization, e.g. 10z,-90x. Default = top view. Preset for front view: front (= -90x). If the first rotation has a negative angle, preceed it with a dummy rotation, e.g. 0z,-90x. ")
+                        help="List of rotations for the visualization, e.g. 10z,-90x. Default = top view. Presets for front view: front (= -90x), front2 (90z,-90x). If the first rotation has a negative angle, preceed it with a dummy rotation, e.g. 0z,-90x. ")
     parser.add_argument('-s','--supercell', nargs = 3, type=int, help="Replicate the cell nx ny nz times.")
+    parser.add_argument('-wr', '--wrap', action='store_true', default=False, help='Wrap atoms according to pbc. Default = False')
     parser.add_argument('-dc','--depth-cueing', nargs='?', type=float, const=1, help='Enable depth cueing. Optional parameter: intensity (>=0, default=1).') 
     parser.add_argument('-rc','--range-cut', nargs=2, type=float, help='Select range [zmin, zmax] to be displayed.')
+    parser.add_argument('-cv','--cut-vacuum', action='store_true', help='Cut vacuum above and below the slab.')
+
+    parser.add_argument('-np','--nopov', action='store_true', default=False, help='Do not use povray for rendering. Default = use povray')
+    parser.add_argument('-w', '--width-resolution', type=int, default=700, help='Horizontal resolution in pixels. Defaul = 700')
+
+    parser.add_argument('-m','--movie', action='store_true', default=False, help='Create movie from the frames. Default = False')
+    parser.add_argument('-f', '--framerate', type=int, default=10, help='Framerate of the movie (frames per second). Default = 10.')
+
+
 
     args = parser.parse_args()
 
     if args.rotations == 'front': args.rotations = '-90x'
+    if args.rotations == 'front2': args.rotations = '90z,-90x'
 
     return args
 
@@ -50,14 +59,18 @@ def main():
 
     start_rendering(filename = args.filename,
                     index = args.index, 
-                    movie = args.movie, 
-                    framerate = args.framerate, 
-                    povray = not args.nopov, 
-                    width_res = args.width_resolution, 
+                    outfile = args.output,
                     rotations = args.rotations,
                     supercell = args.supercell,
+                    wrap=args.wrap,
                     depth_cueing=args.depth_cueing,
-                    range_cut=args.range_cut)
+                    range_cut=args.range_cut,
+                    cut_vacuum=args.cut_vacuum,
+                    povray = not args.nopov, 
+                    width_res = args.width_resolution,
+                    movie = args.movie, 
+                    framerate = args.framerate
+                )
 
 
 if __name__ == '__main__':

@@ -14,18 +14,22 @@ from ase.io.pov import get_bondpairs
 from ase.io import read, write
 from ase import Atoms
 import json
-import os
+import os, shutil
 import numpy as np
+from tqdm import tqdm
 
 
 def render_image(atoms : Atoms, 
                  label : str, 
+                 outfile : str = None,
                  povray : bool = True, 
                  width_res : int = 700, 
                  rotations : str = '',
                  supercell : list = [1,1,1],
+                 wrap : bool = False,
                  depth_cueing : float = None,
                  range_cut : tuple = None,
+                 cut_vacuum : bool = False,
                  custom_settings = None):
      
 
@@ -34,19 +38,22 @@ def render_image(atoms : Atoms,
     BOND_RADIUS_DEFAULT = 0.8
     BOND_LINE_WIDTH_DEFAULT = 0.1
 
+    if wrap:
+        atoms.wrap()
 
     if supercell:
         atoms *= supercell
 
-    #cut the vacuum above the top slab
-    #cell = atoms.cell.lengths()
-    #cell[2] = np.max([atom.z for atom in atoms]) + 2
-    #atoms.set_cell(cell, scale_atoms = False)
+    if cut_vacuum:
+        atoms.translate([0,0,-min([atom.z for atom in atoms])]) #shift to z=0
+        atoms.cell[2,2] = np.max([atom.z for atom in atoms])
+        atoms.pbc=[True,True,False] #to avoid periodic bonding in z direction
 
     if range_cut is not None:
         del atoms[[atom.index for atom in atoms if atom.z < range_cut[0] or atom.z > range_cut[1]]]
         atoms.translate([0,0,-range_cut[0]]) #shift the atoms to the origin of the new cell
-        atoms.cell[2,2] = range_cut[1] + 2 - range_cut[0] #set the new cell height (+2 to aovid periodic bonding)
+        atoms.cell[2,2] = range_cut[1] - range_cut[0] #set the new cell height
+        atoms.pbc=[True,True,False] #to avoid periodic bonding in z direction
 
     #set custom colors if present ################################################
     from ase.data.colors import jmol_colors
@@ -109,9 +116,15 @@ def render_image(atoms : Atoms,
         ).render()
         os.remove('{0}.pov'.format(label))
         os.remove('{0}.ini'.format(label))
+        
+        if outfile: 
+            #we have to do this here since we cannot just set the output path in write_pov, 
+            #since the ini and pov files must be in the same folder, without absolute paths
+            shutil.move('{0}.png'.format(label), outfile)
 
     else: # use ASE renderer (low quality, does not draw bonds)
-        write(label + '.png', atoms, 
+        write(outfile if outfile else label + '.png', 
+              atoms, 
               format='png', 
               radii = ATOMIC_RADIUS, 
               rotation=rotations, 
@@ -124,18 +137,22 @@ def render_image(atoms : Atoms,
 
 def start_rendering(filename : str, 
                     index : str = '-1', 
-                    movie : bool = False, 
-                    framerate : int = 10, 
-                    povray : bool = True, 
-                    width_res : int = 700, 
+                    outfile : str = None,
                     rotations : str = '',
                     supercell : list = [1,1,1],
+                    wrap : bool = False,
                     depth_cueing : float = None,
-                    range_cut : tuple = None
+                    range_cut : tuple = None,
+                    cut_vacuum : bool = False,
+                    povray : bool = True, 
+                    width_res : int = 700, 
+                    movie : bool = False, 
+                    framerate : int = 10
                     ):
+
     
     atoms = read(filename, index=index) #read file (any format supported by ASE)
-    label = os.path.splitext(filename)[0]
+    label = os.path.splitext(os.path.basename(filename))[0]  #get filename without extension, and without path before possible /
     print('File was read successfully.')
 
     custom_settings_path = None
@@ -153,32 +170,44 @@ def start_rendering(filename : str,
     if type(atoms) is list:
 
         print(f'Rendering {len(atoms)} images...')
-        for i, atom in enumerate(atoms):
+
+        os.makedirs('rendered_frames', exist_ok=True)
+        main_dir = os.getcwd()
+        os.chdir('rendered_frames')
+
+        for i, atom in enumerate(tqdm(atoms)):
             render_image(atom, 
                          label + '_{:05d}'.format(i), 
                          povray=povray, 
                          width_res=width_res, 
                          rotations=rotations,
                          supercell=supercell,
+                         wrap=wrap,
                          depth_cueing=depth_cueing,
                          range_cut=range_cut, 
+                         cut_vacuum=cut_vacuum,
                          custom_settings=custom_settings)
         print('Rendering complete.')
 
+        os.chdir(main_dir)
+
         if movie:
             print('Generating movie...')
-            os.system(f'ffmpeg -framerate {framerate} -i {label}_%05d.png  -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2"  -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p {label}.mp4')
+            os.system(f'ffmpeg -framerate {framerate} -i rendered_frames/{label}_%05d.png  -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2"  -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p {label}.mp4')
             print('Movie generated.')
     else:
         print('Rendering image...')
         render_image(atoms, 
-                     label, 
+                     label=label,
+                     outfile=outfile, 
                      povray=povray, 
                      width_res=width_res, 
                      rotations=rotations,
                      supercell=supercell,
+                     wrap=wrap,
                      depth_cueing=depth_cueing, 
                      range_cut=range_cut, 
+                     cut_vacuum=cut_vacuum,
                      custom_settings=custom_settings)
         print('Rendering complete.')
 
