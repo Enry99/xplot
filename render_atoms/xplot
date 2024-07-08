@@ -21,7 +21,7 @@ def cli_parse():
         description='Options for image rendering:'
         )
 
-    parser.add_argument('--v', '--version', action='version', version='%(prog)s '+VERSION)
+    parser.add_argument('-v', '--version', action='version', version='%(prog)s '+VERSION)
 
     parser.add_argument('filename', help='Can be in any format readable by ASE (e.g. POSCAR/CONTCAR/vasprun.xml, xyz, cif, pwi/pwo, xsf...). Can also be a trajectory.') 
     parser.add_argument('-i','--index', type=str, default='-1', 
@@ -35,6 +35,7 @@ def cli_parse():
     parser.add_argument('-dc','--depth-cueing', nargs='?', type=float, const=1, help='Enable depth cueing. Optional parameter: intensity (>=0, default=1).') 
     parser.add_argument('-rc','--range-cut', nargs=2, type=float, help='Select range [zmin, zmax] to be displayed.')
     parser.add_argument('-cv','--cut-vacuum', action='store_true', help='Cut vacuum above and below the slab.')
+    parser.add_argument('-cc', '--colorcode', type=str, choices=['forces', 'coordnum'], help='Color atoms according to a property (e.g. forces, coordination number).')
 
     parser.add_argument('-np','--nopov', action='store_true', default=False, help='Do not use povray for rendering. Default = use povray')
     parser.add_argument('-w', '--width-resolution', type=int, default=700, help='Horizontal resolution in pixels. Defaul = 700')
@@ -66,6 +67,7 @@ def main():
                     depth_cueing=args.depth_cueing,
                     range_cut=args.range_cut,
                     cut_vacuum=args.cut_vacuum,
+                    colorcode=args.colorcode,
                     povray = not args.nopov, 
                     width_res = args.width_resolution,
                     movie = args.movie, 

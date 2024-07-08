@@ -17,6 +17,7 @@ import json
 import os, shutil
 import numpy as np
 from tqdm import tqdm
+from render_atoms import ase_custom
 
 
 def render_image(atoms : Atoms, 
@@ -30,6 +31,7 @@ def render_image(atoms : Atoms,
                  depth_cueing : float = None,
                  range_cut : tuple = None,
                  cut_vacuum : bool = False,
+                 colorcode : str = None,
                  custom_settings = None):
      
 
@@ -75,7 +77,34 @@ def render_image(atoms : Atoms,
     for color in USER_COLORS:
         ATOM_COLORS[color[0]] = color[1]
 
-    colors = [ ATOM_COLORS[atom.number] for atom in atoms]
+    
+    if colorcode is None:
+        colors = [ ATOM_COLORS[atom.number] for atom in atoms]
+    else:
+        from matplotlib import cm
+        from matplotlib.colors import Normalize
+
+        if colorcode == 'forces':
+            try:
+                quantity = [np.linalg.norm(force) for force in atoms.get_forces()]
+            except:
+                raise ValueError("Forces are not present.")
+            cmap = cm.get_cmap('Blues')
+
+        elif colorcode == 'coordnum':
+            from ase.neighborlist import NeighborList, natural_cutoffs
+            cutoffs = natural_cutoffs(atoms, mult=1.1)
+            nl = NeighborList(cutoffs, skin=0, self_interaction=False, bothways=True)
+            nl.update(atoms)
+            connmat = nl.get_connectivity_matrix()
+            quantity = [connmat[idx].count_nonzero() for idx in range(len(atoms))]
+            cmap = cm.get_cmap('viridis_r')
+        else:
+            raise ValueError("Invalid colorcode.")
+        
+        norm = Normalize(vmin=min(quantity), vmax=max(quantity))
+        scalar_map = cm.ScalarMappable(norm=norm, cmap=cmap)
+        colors = [scalar_map.to_rgba(q)[:3] for q in quantity]
 
 
     #fading color for lower layers in top view
@@ -144,6 +173,7 @@ def start_rendering(filename : str,
                     depth_cueing : float = None,
                     range_cut : tuple = None,
                     cut_vacuum : bool = False,
+                    colorcode : str = None,
                     povray : bool = True, 
                     width_res : int = 700, 
                     movie : bool = False, 
@@ -186,6 +216,7 @@ def start_rendering(filename : str,
                          depth_cueing=depth_cueing,
                          range_cut=range_cut, 
                          cut_vacuum=cut_vacuum,
+                         colorcode=colorcode,
                          custom_settings=custom_settings)
         print('Rendering complete.')
 
@@ -208,6 +239,7 @@ def start_rendering(filename : str,
                      depth_cueing=depth_cueing, 
                      range_cut=range_cut, 
                      cut_vacuum=cut_vacuum,
+                     colorcode=colorcode,
                      custom_settings=custom_settings)
         print('Rendering complete.')
 
