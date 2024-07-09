@@ -32,10 +32,11 @@ def cli_parse():
                         help="List of rotations for the visualization, e.g. 10z,-90x. Default = top view. Presets for front view: front (= -90x), front2 (90z,-90x). If the first rotation has a negative angle, preceed it with a dummy rotation, e.g. 0z,-90x. ")
     parser.add_argument('-s','--supercell', nargs = 3, type=int, help="Replicate the cell nx ny nz times.")
     parser.add_argument('-wr', '--wrap', action='store_true', default=False, help='Wrap atoms according to pbc. Default = False')
-    parser.add_argument('-dc','--depth-cueing', nargs='?', type=float, const=1, help='Enable depth cueing. Optional parameter: intensity (>=0, default=1).') 
+    parser.add_argument('-dc','--depth-cueing', nargs='?', type=float, const=1, help='Enable depth cueing. Optional parameter: intensity (>0, default=1).') 
     parser.add_argument('-rc','--range-cut', nargs=2, type=float, help='Select range [zmin, zmax] to be displayed.')
     parser.add_argument('-cv','--cut-vacuum', action='store_true', help='Cut vacuum above and below the slab.')
     parser.add_argument('-cc', '--colorcode', type=str, choices=['forces', 'coordnum'], help='Color atoms according to a property (e.g. forces, coordination number).')
+    parser.add_argument('-nobd','--nobonds', action='store_true', default=False, help='Do not show bonds' )
 
     parser.add_argument('-np','--nopov', action='store_true', default=False, help='Do not use povray for rendering. Default = use povray')
     parser.add_argument('-w', '--width-resolution', type=int, default=700, help='Horizontal resolution in pixels. Defaul = 700')
@@ -68,6 +69,7 @@ def main():
                     range_cut=args.range_cut,
                     cut_vacuum=args.cut_vacuum,
                     colorcode=args.colorcode,
+                    nobonds = args.nobonds,
                     povray = not args.nopov, 
                     width_res = args.width_resolution,
                     movie = args.movie, 

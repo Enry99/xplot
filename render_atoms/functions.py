@@ -32,6 +32,7 @@ def render_image(atoms : Atoms,
                  range_cut : tuple = None,
                  cut_vacuum : bool = False,
                  colorcode : str = None,
+                 nobonds : bool = False,
                  custom_settings = None):
      
 
@@ -107,19 +108,21 @@ def render_image(atoms : Atoms,
         colors = [scalar_map.to_rgba(q)[:3] for q in quantity]
 
 
+    ############################################################################
+    # OLD depth cueing
     #fading color for lower layers in top view
-    if (depth_cueing is not None):
-        zmax = max([atom.z for atom in atoms])
-        zmin = min([atom.z for atom in atoms])
-        delta = zmax - zmin
-        if depth_cueing < 0:
-            raise ValueError("depth_cueing_intensity must be >=0.")
-        for atom in atoms:       
-            r,g,b = colors[atom.index] + (np.array([1,1,1]) - colors[atom.index])*(zmax - atom.z)/delta * depth_cueing
-            if r>1: r=1
-            if g>1: g=1
-            if b>1: b=1
-            colors[atom.index] = [r,g,b]
+    #if (depth_cueing is not None):
+    #    zmax = max([atom.z for atom in atoms])
+    #    zmin = min([atom.z for atom in atoms])
+    #    delta = zmax - zmin
+    #    if depth_cueing < 0:
+    #        raise ValueError("depth_cueing_intensity must be >=0.")
+    #    for atom in atoms:       
+    #        r,g,b = colors[atom.index] + (np.array([1,1,1]) - colors[atom.index])*(zmax - atom.z)/delta * depth_cueing
+    #        if r>1: r=1
+    #        if g>1: g=1
+    #        if b>1: b=1
+    #        colors[atom.index] = [r,g,b]
     ############################################################################
 
 
@@ -127,21 +130,29 @@ def render_image(atoms : Atoms,
         config_copy = atoms.copy()
         #config_copy.set_pbc([0,0,0]) #to avoid drawing bonds with invisible replicas
 
+        povray_settings=dict(canvas_width=width_res, 
+                                celllinewidth=CELLLINEWIDTH, 
+                                transparent=False, 
+                                camera_type='orthographic',
+                                camera_dist=1,
+                                #textures = (['pale'] if depth_cueing else ['ase3']) * len(atoms),
+                                bondlinewidth=BOND_LINE_WIDTH
+                            )
+        if not nobonds:
+            povray_settings['bondatoms'] = get_bondpairs(config_copy, radius=BOND_RADIUS)
+        if depth_cueing is not None:
+            povray_settings['depth_cueing'] = True
+            povray_settings['cue_density'] = depth_cueing
+
+        #print(atoms.positions[:,2])
+        
         write('{0}.pov'.format(label), 
             atoms, 
             format='pov',
             radii = ATOMIC_RADIUS, 
             rotation=rotations,
             colors=colors,
-            povray_settings=dict(canvas_width=width_res, 
-                                 celllinewidth=CELLLINEWIDTH, 
-                                 transparent=False, 
-                                 camera_type='orthographic',
-                                 textures = (['pale'] if depth_cueing else ['ase3']) * len(atoms),
-                                 camera_dist=1, 
-                                 bondatoms=get_bondpairs(config_copy, radius=BOND_RADIUS),
-                                 bondlinewidth=BOND_LINE_WIDTH
-                                )                                
+            povray_settings=povray_settings                  
         ).render()
         os.remove('{0}.pov'.format(label))
         os.remove('{0}.ini'.format(label))
@@ -174,6 +185,7 @@ def start_rendering(filename : str,
                     range_cut : tuple = None,
                     cut_vacuum : bool = False,
                     colorcode : str = None,
+                    nobonds : bool = False,
                     povray : bool = True, 
                     width_res : int = 700, 
                     movie : bool = False, 
@@ -217,6 +229,7 @@ def start_rendering(filename : str,
                          range_cut=range_cut, 
                          cut_vacuum=cut_vacuum,
                          colorcode=colorcode,
+                         nobonds=nobonds,
                          custom_settings=custom_settings)
         print('Rendering complete.')
 
@@ -240,6 +253,7 @@ def start_rendering(filename : str,
                      range_cut=range_cut, 
                      cut_vacuum=cut_vacuum,
                      colorcode=colorcode,
+                     nobonds=nobonds,
                      custom_settings=custom_settings)
         print('Rendering complete.')
 

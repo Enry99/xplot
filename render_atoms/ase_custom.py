@@ -1588,6 +1588,159 @@ def write_xyz_custom(fileobj, images, comment='', columns=None,
         for i in range(natoms):
             fileobj.write(fmt % tuple(data[i]))
 
+#################################################
+# mod to ase.io.pov.POVRAY for depth cueing
+
+def POVRAY_init(self, cell, cell_vertices, positions, diameters, colors,
+            image_width, image_height, constraints=tuple(), isosurfaces=[],
+            display=False, pause=True, transparent=True, canvas_width=None,
+            canvas_height=None, camera_dist=50., image_plane=None,
+            camera_type='orthographic', point_lights=[],
+            area_light=[(2., 3., 40.), 'White', .7, .7, 3, 3],
+            background='White', textures=None, transmittances=None,
+            depth_cueing=False, cue_density=5e-3,
+            celllinewidth=0.05, bondlinewidth=0.10, bondatoms=[],
+            exportconstraints=False):
+    """
+    # x, y is the image plane, z is *out* of the screen
+    cell: ase.cell
+        cell object
+    cell_vertices: 2-d numpy array
+        contains the 8 vertices of the cell, each with three coordinates
+    positions: 2-d numpy array
+        number of atoms length array with three coordinates for positions
+    diameters: 1-d numpy array
+        diameter of atoms (in order with positions)
+    colors: list of str
+        colors of atoms (in order with positions)
+    image_width: float
+        image width in pixels
+    image_height: float
+        image height in pixels
+    constraints: Atoms.constraints
+        constraints to be visualized
+    isosurfaces: list of POVRAYIsosurface
+        composite object to write/render POVRAY isosurfaces
+    display: bool
+        display while rendering
+    pause: bool
+        pause when done rendering (only if display)
+    transparent: bool
+        make background transparent
+    canvas_width: int
+        width of canvas in pixels
+    canvas_height: int
+        height of canvas in pixels
+    camera_dist: float
+        distance from camera to front atom
+    image_plane: float
+        distance from front atom to image plane
+    camera_type: str
+        if 'orthographic' perspective, ultra_wide_angle
+    point_lights: list of 2-element sequences
+        like [[loc1, color1], [loc2, color2],...]
+    area_light: 3-element sequence of location (3-tuple), color (str),
+            width (float), height (float),
+            Nlamps_x (int), Nlamps_y (int)
+        example [(2., 3., 40.), 'White', .7, .7, 3, 3]
+    background: str
+        color specification, e.g., 'White'
+    textures: list of str
+        length of atoms list of texture names
+    transmittances: list of floats
+        length of atoms list of transmittances of the atoms
+    depth_cueing: bool
+        whether or not to use depth cueing a.k.a. fog
+        use with care - adjust the camera_distance to be closer
+    cue_density: float
+        if there is depth_cueing, how dense is it (how dense is the fog)
+    celllinewidth: float
+        radius of the cylinders representing the cell (Ang.)
+    bondlinewidth: float
+        radius of the cylinders representing bonds (Ang.)
+    bondatoms: list of lists (polymorphic)
+        [[atom1, atom2], ... ] pairs of bonding atoms
+        For bond order > 1 = [[atom1, atom2, offset,
+                                bond_order, bond_offset],
+                            ... ]
+        bond_order: 1, 2, 3 for single, double,
+                    and triple bond
+        bond_offset: vector for shifting bonds from
+                    original position. Coordinates are
+                    in Angstrom unit.
+    exportconstraints: bool
+        honour FixAtoms and mark?"""
+
+    # attributes from initialization
+    self.area_light = area_light
+    self.background = background
+    self.bondatoms = bondatoms
+    self.bondlinewidth = bondlinewidth
+    self.camera_dist = camera_dist
+    self.camera_type = camera_type
+    self.celllinewidth = celllinewidth
+    self.cue_density = cue_density
+    self.depth_cueing = depth_cueing
+    self.display = display
+    self.exportconstraints = exportconstraints
+    self.isosurfaces = isosurfaces
+    self.pause = pause
+    self.point_lights = point_lights
+    self.textures = textures
+    self.transmittances = transmittances
+    self.transparent = transparent
+
+    self.image_width = image_width
+    self.image_height = image_height
+    self.colors = colors
+    self.cell = cell
+    self.diameters = diameters
+
+    # calculations based on passed inputs
+
+    #NOTE: fix, since PlottingVariables puts also some other strange coordinates besides those
+    #of the atoms, so when calculating z0 the offset if wrong
+    positions = positions[:len(diameters)]
+
+    z0 = positions[:, 2].max()
+    self.offset = (image_width / 2, image_height / 2, z0)
+    self.positions = positions - self.offset
+
+    if cell_vertices is not None:
+        self.cell_vertices = cell_vertices - self.offset
+        self.cell_vertices.shape = (2, 2, 2, 3)
+    else:
+        self.cell_vertices = None
+
+    ratio = float(self.image_width) / self.image_height
+    if canvas_width is None:
+        if canvas_height is None:
+            self.canvas_width = min(self.image_width * 15, 640)
+            self.canvas_height = min(self.image_height * 15, 640)
+        else:
+            self.canvas_width = canvas_height * ratio
+            self.canvas_height = canvas_height
+    elif canvas_height is None:
+        self.canvas_width = canvas_width
+        self.canvas_height = self.canvas_width / ratio
+    else:
+        raise RuntimeError("Can't set *both* width and height!")
+
+    # Distance to image plane from camera
+    if image_plane is None:
+        if self.camera_type == 'orthographic':
+            self.image_plane = 1 - self.camera_dist
+        else:
+            self.image_plane = 0
+    self.image_plane += self.camera_dist
+
+    self.constrainatoms = []
+    for c in constraints:
+        if isinstance(c, FixAtoms):
+            # self.constrainatoms.extend(c.index) # is this list-like?
+            for n, i in enumerate(c.index):
+                self.constrainatoms += [i]
+
 
 #################################################
 #fix for ASE 3.22.1 with the content of the GitLab repository, as of 2023. REMOVE in future release of ASE.
@@ -1614,7 +1767,7 @@ adaptive 1 jitter}}"""
             dist = 1e-4
         else:
             dist = 1. / self.cue_density
-        fog += f'fog {{fog_type 1 distance {dist:.4f} '\
+        fog += f'fog {{fog_type 2 distance {dist:.4f} up <0,0,1> fog_offset -3 fog_alt 1 '\
                 f'color {pc(self.background)}}}'
 
     mat_style_keys = (f'#declare {k} = {v}'
@@ -2140,6 +2293,7 @@ ase.io.extxyz._read_xyz_frame = _read_xyz_frame_custom
 ase.io.extxyz.write_xyz = write_xyz_custom
 ase.io.pov.POVRAY.write_pov = write_pov
 ase.io.pov.POVRAY.write_ini = write_ini
+ase.io.pov.POVRAY.__init__ = POVRAY_init
 ase.io.pov.POVRAY.material_styles_dict = material_styles_dict
 ase.io.vasp_parsers.vasp_outcar_parsers.Kpoints.parse = parse_kpoints_outcar_custom
 ase.constraints.FixCartesian.todict = todict_fixed
