@@ -11,9 +11,9 @@
             [42, [0.70, 0.70, 0.70]]
         ],
 
-    "atomic_radius" : 0.75,
+    "atomic_radius" : 0.7,
     "bond_radius" : 0.8,
-    "bond_line_width" : 0.18,
+    "bond_line_width" : 0.15,
     "cell_line_width"  : 0
 
 }

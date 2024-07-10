@@ -36,6 +36,7 @@ def cli_parse():
     parser.add_argument('-rc','--range-cut', nargs=2, type=float, help='Select range [zmin, zmax] to be displayed.')
     parser.add_argument('-cv','--cut-vacuum', action='store_true', help='Cut vacuum above and below the slab.')
     parser.add_argument('-cc', '--colorcode', type=str, choices=['forces', 'coordnum'], help='Color atoms according to a property (e.g. forces, coordination number).')
+    parser.add_argument('-arr', '--arrows', type=str, choices=['forces', 'magmoms'], help='Draw arrows representing the vectors, with lenghth proportional to the magnitude.')
     parser.add_argument('-nobd','--nobonds', action='store_true', default=False, help='Do not show bonds' )
 
     parser.add_argument('-np','--nopov', action='store_true', default=False, help='Do not use povray for rendering. Default = use povray')
@@ -61,6 +62,8 @@ def main():
 
     start_rendering(filename = args.filename,
                     index = args.index, 
+                    movie = args.movie, 
+                    framerate = args.framerate,
                     outfile = args.output,
                     rotations = args.rotations,
                     supercell = args.supercell,
@@ -69,11 +72,10 @@ def main():
                     range_cut=args.range_cut,
                     cut_vacuum=args.cut_vacuum,
                     colorcode=args.colorcode,
+                    arrows=args.arrows,
                     nobonds = args.nobonds,
                     povray = not args.nopov, 
                     width_res = args.width_resolution,
-                    movie = args.movie, 
-                    framerate = args.framerate
                 )
 
 

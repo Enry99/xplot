@@ -1589,7 +1589,7 @@ def write_xyz_custom(fileobj, images, comment='', columns=None,
             fileobj.write(fmt % tuple(data[i]))
 
 #################################################
-# mod to ase.io.pov.POVRAY for depth cueing
+# mod to ase.io.pov.POVRAY for depth cueing and arrows
 
 def POVRAY_init(self, cell, cell_vertices, positions, diameters, colors,
             image_width, image_height, constraints=tuple(), isosurfaces=[],
@@ -1600,7 +1600,8 @@ def POVRAY_init(self, cell, cell_vertices, positions, diameters, colors,
             background='White', textures=None, transmittances=None,
             depth_cueing=False, cue_density=5e-3,
             celllinewidth=0.05, bondlinewidth=0.10, bondatoms=[],
-            exportconstraints=False):
+            exportconstraints=False,
+            arrows : list = None):
     """
     # x, y is the image plane, z is *out* of the screen
     cell: ase.cell
@@ -1695,6 +1696,7 @@ def POVRAY_init(self, cell, cell_vertices, positions, diameters, colors,
     self.colors = colors
     self.cell = cell
     self.diameters = diameters
+    self.arrows = arrows
 
     # calculations based on passed inputs
 
@@ -1740,6 +1742,159 @@ def POVRAY_init(self, cell, cell_vertices, positions, diameters, colors,
             # self.constrainatoms.extend(c.index) # is this list-like?
             for n, i in enumerate(c.index):
                 self.constrainatoms += [i]
+
+
+from ase.utils import rotate
+from ase.data import covalent_radii, atomic_numbers
+from ase.data.colors import jmol_colors
+from ase.io.utils import cell_to_lines
+
+def Plotting_Variables_init(self, atoms, rotation='', show_unit_cell=2,
+                radii=None, bbox=None, colors=None, scale=20,
+                maxwidth=500, extra_offset=(0., 0.),
+                arrows_type : str = None):
+    self.numbers = atoms.get_atomic_numbers()
+    self.colors = colors
+    if colors is None:
+        ncolors = len(jmol_colors)
+        self.colors = jmol_colors[self.numbers.clip(max=ncolors - 1)]
+
+    if radii is None:
+        radii = covalent_radii[self.numbers]
+    elif isinstance(radii, float):
+        radii = covalent_radii[self.numbers] * radii
+    else:
+        radii = np.array(radii)
+
+    natoms = len(atoms)
+
+    if isinstance(rotation, str):
+        rotation = rotate(rotation)
+
+    cell = atoms.get_cell()
+    disp = atoms.get_celldisp().flatten()
+
+    if show_unit_cell > 0:
+        L, T, D = cell_to_lines(self, cell)
+        cell_vertices = np.empty((2, 2, 2, 3))
+        for c1 in range(2):
+            for c2 in range(2):
+                for c3 in range(2):
+                    cell_vertices[c1, c2, c3] = np.dot([c1, c2, c3],
+                                                        cell) + disp
+        cell_vertices.shape = (8, 3)
+        cell_vertices = np.dot(cell_vertices, rotation)
+    else:
+        L = np.empty((0, 3))
+        T = None
+        D = None
+        cell_vertices = None
+
+    nlines = len(L)
+
+    positions = np.empty((natoms + nlines, 3))
+    R = atoms.get_positions()
+    positions[:natoms] = R
+    positions[natoms:] = L
+
+    r2 = radii**2
+    for n in range(nlines):
+        d = D[T[n]]
+        if ((((R - L[n] - d)**2).sum(1) < r2) &
+            (((R - L[n] + d)**2).sum(1) < r2)).any():
+            T[n] = -1
+
+    positions = np.dot(positions, rotation)
+    R = positions[:natoms]
+
+    if arrows_type is not None:
+        if arrows_type == 'forces':
+            arrows = atoms.get_forces()
+        elif arrows_type == 'magmoms':
+            arrows = np.array([[0,0, magmom] for magmom in atoms.get_magnetic_moments()])
+        else:
+            raise ValueError('Unknown arrows type: {}'.format(arrows_type))
+        arrows = np.dot(arrows, rotation)
+        self.arrows = arrows
+    else:
+        self.arrows = None
+
+    if bbox is None:
+        X1 = (R - radii[:, None]).min(0)
+        X2 = (R + radii[:, None]).max(0)
+        if show_unit_cell == 2:
+            X1 = np.minimum(X1, cell_vertices.min(0))
+            X2 = np.maximum(X2, cell_vertices.max(0))
+        M = (X1 + X2) / 2
+        S = 1.05 * (X2 - X1)
+        w = scale * S[0]
+        if w > maxwidth:
+            w = maxwidth
+            scale = w / S[0]
+        h = scale * S[1]
+        offset = np.array([scale * M[0] - w / 2, scale * M[1] - h / 2, 0])
+    else:
+        w = (bbox[2] - bbox[0]) * scale
+        h = (bbox[3] - bbox[1]) * scale
+        offset = np.array([bbox[0], bbox[1], 0]) * scale
+
+    offset[0] = offset[0] - extra_offset[0]
+    offset[1] = offset[1] - extra_offset[1]
+    self.w = w + extra_offset[0]
+    self.h = h + extra_offset[1]
+
+    positions *= scale
+    positions -= offset
+
+    if nlines > 0:
+        D = np.dot(D, rotation)[:, :2] * scale
+
+    if cell_vertices is not None:
+        cell_vertices *= scale
+        cell_vertices -= offset
+
+    cell = np.dot(cell, rotation)
+    cell *= scale
+
+    self.cell = cell
+    self.positions = positions
+    self.D = D
+    self.T = T
+    self.cell_vertices = cell_vertices
+    self.natoms = natoms
+    self.d = 2 * scale * radii
+    self.constraints = atoms.constraints
+
+    # extension for partial occupancies
+    self.frac_occ = False
+    self.tags = None
+    self.occs = None
+
+    try:
+        self.occs = atoms.info['occupancy']
+        self.tags = atoms.get_tags()
+        self.frac_occ = True
+    except KeyError:
+        pass
+
+@classmethod
+def from_PlottingVariables(cls, pvars, **kwargs):
+    cell = pvars.cell
+    cell_vertices = pvars.cell_vertices
+    if 'colors' in kwargs.keys():
+        colors = kwargs.pop('colors')
+    else:
+        colors = pvars.colors
+    diameters = pvars.d
+    image_height = pvars.h
+    image_width = pvars.w
+    positions = pvars.positions
+    constraints = pvars.constraints
+    arrows=pvars.arrows
+    return cls(cell=cell, cell_vertices=cell_vertices, colors=colors,
+            constraints=constraints, diameters=diameters,
+            image_height=image_height, image_width=image_width,
+            positions=positions, arrows=arrows, **kwargs)
 
 
 #################################################
@@ -1937,6 +2092,26 @@ adaptive 1 jitter}}"""
                 f'{trans}, {tex}) // #{a:n} \n'
     constraints = constraints.strip('\n')
 
+    # Draw arrows
+    arrows = ''
+    if self.arrows is not None:
+        maxlength = max([np.linalg.norm(arrow) for arrow in self.arrows])
+        for pos, arrow, diam in zip(self.positions, self.arrows, self.diameters):
+            modulus = np.linalg.norm(arrow)
+            normalized_arrow = arrow / maxlength
+            if modulus/maxlength > 0.1: # avoid degenerate primitives 
+                cylinder_pos_dw = pos - 0.8*normalized_arrow 
+                cylinder_pos_up = pos + 0.7*normalized_arrow
+                arrows += f'cylinder {{{pa(cylinder_pos_dw)}, '+\
+                                        f'{pa(cylinder_pos_up)}, 0.1 texture{{pigment '+\
+                                        f'{{color {pc([1,0,0])} '+\
+                                        f'transmit 0.0}} finish{{ase3}}}}}}\n'
+                cone_pos = pos + 0.7*normalized_arrow
+                arrows += f'cone {{{pa(cone_pos)}, 0.2'+\
+                                        f'{pa(cone_pos + 0.3*arrow/modulus)}, 0.0 texture{{pigment '+\
+                                        f'{{color {pc([1,0,0])} '+\
+                                        f'transmit 0.0}} finish{{ase3}}}}}}\n'
+
     pov = f"""#version 3.6;
 #include "colors.inc"
 #include "finish.inc"
@@ -1967,6 +2142,7 @@ union{{torus{{R, Rcell rotate 45*z texture{{pigment{{color COL transmit TRANS}} 
 {atoms}
 {bondatoms}
 {constraints if constraints != '' else '// no constraints'}
+{arrows if arrows != '' else '// no arrows'}
 """  # noqa: E501
 
     with open(path, 'w') as fd:
@@ -2286,6 +2462,7 @@ import ase.io.pov
 import ase.io.vasp_parsers.vasp_outcar_parsers
 import ase.constraints
 import ase.io.vasp
+import ase.io.utils
 ase.io.espresso.write_espresso_in = write_espresso_in_custom
 ase.io.espresso.read_espresso_in = read_espresso_in_custom
 ase.io.espresso.read_espresso_out = read_espresso_out_custom
@@ -2294,6 +2471,8 @@ ase.io.extxyz.write_xyz = write_xyz_custom
 ase.io.pov.POVRAY.write_pov = write_pov
 ase.io.pov.POVRAY.write_ini = write_ini
 ase.io.pov.POVRAY.__init__ = POVRAY_init
+ase.io.pov.POVRAY.from_PlottingVariables = from_PlottingVariables
+ase.io.utils.PlottingVariables.__init__ = Plotting_Variables_init
 ase.io.pov.POVRAY.material_styles_dict = material_styles_dict
 ase.io.vasp_parsers.vasp_outcar_parsers.Kpoints.parse = parse_kpoints_outcar_custom
 ase.constraints.FixCartesian.todict = todict_fixed

@@ -32,6 +32,7 @@ def render_image(atoms : Atoms,
                  range_cut : tuple = None,
                  cut_vacuum : bool = False,
                  colorcode : str = None,
+                 arrows : str = None,
                  nobonds : bool = False,
                  custom_settings = None):
      
@@ -94,7 +95,7 @@ def render_image(atoms : Atoms,
 
         elif colorcode == 'coordnum':
             from ase.neighborlist import NeighborList, natural_cutoffs
-            cutoffs = natural_cutoffs(atoms, mult=1.1)
+            cutoffs = natural_cutoffs(atoms, mult=1.2)
             nl = NeighborList(cutoffs, skin=0, self_interaction=False, bothways=True)
             nl.update(atoms)
             connmat = nl.get_connectivity_matrix()
@@ -134,9 +135,9 @@ def render_image(atoms : Atoms,
                                 celllinewidth=CELLLINEWIDTH, 
                                 transparent=False, 
                                 camera_type='orthographic',
-                                camera_dist=1,
+                                camera_dist=2,
                                 #textures = (['pale'] if depth_cueing else ['ase3']) * len(atoms),
-                                bondlinewidth=BOND_LINE_WIDTH
+                                bondlinewidth=BOND_LINE_WIDTH,
                             )
         if not nobonds:
             povray_settings['bondatoms'] = get_bondpairs(config_copy, radius=BOND_RADIUS)
@@ -152,7 +153,8 @@ def render_image(atoms : Atoms,
             radii = ATOMIC_RADIUS, 
             rotation=rotations,
             colors=colors,
-            povray_settings=povray_settings                  
+            povray_settings=povray_settings,
+            arrows_type = arrows               
         ).render()
         os.remove('{0}.pov'.format(label))
         os.remove('{0}.ini'.format(label))
@@ -177,19 +179,9 @@ def render_image(atoms : Atoms,
 
 def start_rendering(filename : str, 
                     index : str = '-1', 
-                    outfile : str = None,
-                    rotations : str = '',
-                    supercell : list = [1,1,1],
-                    wrap : bool = False,
-                    depth_cueing : float = None,
-                    range_cut : tuple = None,
-                    cut_vacuum : bool = False,
-                    colorcode : str = None,
-                    nobonds : bool = False,
-                    povray : bool = True, 
-                    width_res : int = 700, 
                     movie : bool = False, 
-                    framerate : int = 10
+                    framerate : int = 10,
+                    **kwargs
                     ):
 
     
@@ -220,17 +212,8 @@ def start_rendering(filename : str,
         for i, atom in enumerate(tqdm(atoms)):
             render_image(atom, 
                          label + '_{:05d}'.format(i), 
-                         povray=povray, 
-                         width_res=width_res, 
-                         rotations=rotations,
-                         supercell=supercell,
-                         wrap=wrap,
-                         depth_cueing=depth_cueing,
-                         range_cut=range_cut, 
-                         cut_vacuum=cut_vacuum,
-                         colorcode=colorcode,
-                         nobonds=nobonds,
-                         custom_settings=custom_settings)
+                         custom_settings=custom_settings,
+                         **kwargs)
         print('Rendering complete.')
 
         os.chdir(main_dir)
@@ -243,18 +226,8 @@ def start_rendering(filename : str,
         print('Rendering image...')
         render_image(atoms, 
                      label=label,
-                     outfile=outfile, 
-                     povray=povray, 
-                     width_res=width_res, 
-                     rotations=rotations,
-                     supercell=supercell,
-                     wrap=wrap,
-                     depth_cueing=depth_cueing, 
-                     range_cut=range_cut, 
-                     cut_vacuum=cut_vacuum,
-                     colorcode=colorcode,
-                     nobonds=nobonds,
-                     custom_settings=custom_settings)
+                     custom_settings=custom_settings,
+                     **kwargs)
         print('Rendering complete.')
 
     print('Job done.')
