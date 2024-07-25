@@ -8,11 +8,10 @@ Created on Tue 28 Nov 2023
 
 Small program to render an image using ASE and povray
 """
-VERSION = "0.2"
 
-import sys
+import os, sys, json
 import argparse
-from render_atoms.functions import start_rendering
+import render_atoms
 
 
 
@@ -21,7 +20,7 @@ def cli_parse():
         description='Options for image rendering:'
         )
 
-    parser.add_argument('-v', '--version', action='version', version='%(prog)s '+VERSION)
+    parser.add_argument('-v', '--version', action='version', version='%(prog)s '+render_atoms.__version__)
 
     parser.add_argument('filename', help='Can be in any format readable by ASE (e.g. POSCAR/CONTCAR/vasprun.xml, xyz, cif, pwi/pwo, xsf...). Can also be a trajectory.') 
     parser.add_argument('-i','--index', type=str, default='-1', 
@@ -56,14 +55,40 @@ def cli_parse():
 
 
 
+def read_custom_settings():
+    custom_settings_path = None
+    default_custom_settings = False
+    if os.path.isfile("custom_settings.json"):
+        custom_settings_path = 'custom_settings.json'
+    elif os.path.isfile(f"{os.path.dirname(__file__).rsplit('/',1)[0]}/custom_settings.json"):
+        custom_settings_path = f"{os.path.dirname(__file__).rsplit('/',1)[0]}/custom_settings.json"
+        default_custom_settings = True
+    if custom_settings_path is not None:
+        with open(custom_settings_path, "r") as f:
+            custom_settings = json.load(f)
+            print(f"Custom colors read from {'default' if default_custom_settings else ''}file.")
+    else:
+        custom_settings = None
+
+    return custom_settings
+
+
 def main():
 
     args = cli_parse()
+
+    #try to read custom settings
+    custom_settings = read_custom_settings()
+    if custom_settings.get("povray_old_style", None):
+        render_atoms.POVRAY_OLD_STYLE = True
+
+    from render_atoms.functions import start_rendering    
 
     start_rendering(filename = args.filename,
                     index = args.index, 
                     movie = args.movie, 
                     framerate = args.framerate,
+                    custom_settings = custom_settings,
                     outfile = args.output,
                     rotations = args.rotations,
                     supercell = args.supercell,

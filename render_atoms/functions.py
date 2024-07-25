@@ -76,12 +76,21 @@ def render_image(atoms : Atoms,
         BOND_LINE_WIDTH   = BOND_LINE_WIDTH_DEFAULT
         CELLLINEWIDTH     = 0
 
-    for color in USER_COLORS:
-        ATOM_COLORS[color[0]] = color[1]
-
     
     if colorcode is None:
+        #first, apply those of jmol
         colors = [ ATOM_COLORS[atom.number] for atom in atoms]
+
+        #then, substitute user-defined colors
+        try:
+            species = atoms.get_custom_labels()
+        except:
+            species = atoms.get_chemical_symbols()
+        
+        for i, sp in enumerate(species):
+            if sp in USER_COLORS:
+                #print(sp)
+                colors[i] = USER_COLORS[sp]
     else:
         from matplotlib import cm
         from matplotlib.colors import Normalize
@@ -92,6 +101,13 @@ def render_image(atoms : Atoms,
             except:
                 raise ValueError("Forces are not present.")
             cmap = cm.get_cmap('Blues')
+
+        elif colorcode == 'magmoms':
+            try:
+                quantity = atoms.get_magnetic_moments()
+            except:
+                raise ValueError("Magnetic moments are not present.")
+            cmap = cm.get_cmap('coolwarm')
 
         elif colorcode == 'coordnum':
             from ase.neighborlist import NeighborList, natural_cutoffs
@@ -181,6 +197,7 @@ def start_rendering(filename : str,
                     index : str = '-1', 
                     movie : bool = False, 
                     framerate : int = 10,
+                    custom_settings : dict = None,
                     **kwargs
                     ):
 
@@ -188,18 +205,6 @@ def start_rendering(filename : str,
     atoms = read(filename, index=index) #read file (any format supported by ASE)
     label = os.path.splitext(os.path.basename(filename))[0]  #get filename without extension, and without path before possible /
     print('File was read successfully.')
-
-    custom_settings_path = None
-    if os.path.isfile("custom_settings.json"):
-        custom_settings_path = 'custom_settings.json'
-    elif os.path.isfile(f"{os.path.dirname(__file__).rsplit('/',1)[0]}/custom_settings.json"):
-        custom_settings_path = f"{os.path.dirname(__file__).rsplit('/',1)[0]}/custom_settings.json"
-    if custom_settings_path is not None:
-        with open(custom_settings_path, "r") as f:
-            custom_settings = json.load(f)
-            print("Custom colors read from file.")
-    else:
-        custom_settings = None
 
     if type(atoms) is list:
 

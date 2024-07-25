@@ -2468,12 +2468,16 @@ ase.io.espresso.read_espresso_in = read_espresso_in_custom
 ase.io.espresso.read_espresso_out = read_espresso_out_custom
 ase.io.extxyz._read_xyz_frame = _read_xyz_frame_custom
 ase.io.extxyz.write_xyz = write_xyz_custom
-ase.io.pov.POVRAY.write_pov = write_pov
+from render_atoms import POVRAY_OLD_STYLE
+if 'POVRAY_OLD_STYLE' in globals() and POVRAY_OLD_STYLE:
+    pass
+else:
+    ase.io.pov.POVRAY.write_pov = write_pov
+    ase.io.pov.POVRAY.material_styles_dict = material_styles_dict
 ase.io.pov.POVRAY.write_ini = write_ini
 ase.io.pov.POVRAY.__init__ = POVRAY_init
 ase.io.pov.POVRAY.from_PlottingVariables = from_PlottingVariables
 ase.io.utils.PlottingVariables.__init__ = Plotting_Variables_init
-ase.io.pov.POVRAY.material_styles_dict = material_styles_dict
 ase.io.vasp_parsers.vasp_outcar_parsers.Kpoints.parse = parse_kpoints_outcar_custom
 ase.constraints.FixCartesian.todict = todict_fixed
 ase.io.vasp.read_vasp = read_vasp
