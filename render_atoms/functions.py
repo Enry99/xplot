@@ -202,6 +202,8 @@ def start_rendering(filename : str,
                     ):
 
     
+    if index == '-1' and movie: #if we want to render a movie, we need to read the whole trajectory
+        index = ':'
     atoms = read(filename, index=index) #read file (any format supported by ASE)
     label = os.path.splitext(os.path.basename(filename))[0]  #get filename without extension, and without path before possible /
     print('File was read successfully.')
