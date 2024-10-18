@@ -32,6 +32,7 @@ def render_image(atoms : Atoms,
                  range_cut : tuple = None,
                  cut_vacuum : bool = False,
                  colorcode : str = None,
+                 ccrange : list = None,
                  arrows : str = None,
                  nobonds : bool = False,
                  custom_settings = None):
@@ -120,7 +121,11 @@ def render_image(atoms : Atoms,
         else:
             raise ValueError("Invalid colorcode.")
 
-        norm = Normalize(vmin=min(quantity), vmax=max(quantity))
+        if ccrange is not None:
+            vmin, vmax = ccrange[0], ccrange[1]
+        else:
+            vmin, vmax = min(quantity), max(quantity)
+        norm = Normalize(vmin=vmin, vmax=vmax)
         scalar_map = cm.ScalarMappable(norm=norm, cmap=cmap)
         colors = [scalar_map.to_rgba(q)[:3] for q in quantity]
 
