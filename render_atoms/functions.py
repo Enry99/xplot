@@ -20,11 +20,11 @@ from tqdm import tqdm
 from render_atoms import ase_custom
 
 
-def render_image(atoms : Atoms, 
-                 label : str, 
+def render_image(atoms : Atoms,
+                 label : str,
                  outfile : str = None,
-                 povray : bool = True, 
-                 width_res : int = 700, 
+                 povray : bool = True,
+                 width_res : int = 700,
                  rotations : str = '',
                  supercell : list = [1,1,1],
                  wrap : bool = False,
@@ -35,7 +35,7 @@ def render_image(atoms : Atoms,
                  arrows : str = None,
                  nobonds : bool = False,
                  custom_settings = None):
-     
+
 
     #scaling factors for drawing atoms and bonds
     ATOMIC_RADIUS_DEFAULT = 0.6
@@ -76,7 +76,7 @@ def render_image(atoms : Atoms,
         BOND_LINE_WIDTH   = BOND_LINE_WIDTH_DEFAULT
         CELLLINEWIDTH     = 0
 
-    
+
     if colorcode is None:
         #first, apply those of jmol
         colors = [ ATOM_COLORS[atom.number] for atom in atoms]
@@ -86,13 +86,13 @@ def render_image(atoms : Atoms,
             species = atoms.get_custom_labels()
         except:
             species = atoms.get_chemical_symbols()
-        
+
         for i, sp in enumerate(species):
             if sp in USER_COLORS:
                 #print(sp)
                 colors[i] = USER_COLORS[sp]
     else:
-        from matplotlib import cm
+        from matplotlib import colormaps, cm
         from matplotlib.colors import Normalize
 
         if colorcode == 'forces':
@@ -100,14 +100,14 @@ def render_image(atoms : Atoms,
                 quantity = [np.linalg.norm(force) for force in atoms.get_forces()]
             except:
                 raise ValueError("Forces are not present.")
-            cmap = cm.get_cmap('Blues')
+            cmap = colormaps.get_cmap('Blues')
 
         elif colorcode == 'magmoms':
             try:
                 quantity = atoms.get_magnetic_moments()
             except:
                 raise ValueError("Magnetic moments are not present.")
-            cmap = cm.get_cmap('coolwarm')
+            cmap = colormaps.get_cmap('coolwarm')
 
         elif colorcode == 'coordnum':
             from ase.neighborlist import NeighborList, natural_cutoffs
@@ -116,10 +116,10 @@ def render_image(atoms : Atoms,
             nl.update(atoms)
             connmat = nl.get_connectivity_matrix()
             quantity = [connmat[idx].count_nonzero() for idx in range(len(atoms))]
-            cmap = cm.get_cmap('viridis_r')
+            cmap = colormaps.get_cmap('viridis_r')
         else:
             raise ValueError("Invalid colorcode.")
-        
+
         norm = Normalize(vmin=min(quantity), vmax=max(quantity))
         scalar_map = cm.ScalarMappable(norm=norm, cmap=cmap)
         colors = [scalar_map.to_rgba(q)[:3] for q in quantity]
@@ -134,7 +134,7 @@ def render_image(atoms : Atoms,
     #    delta = zmax - zmin
     #    if depth_cueing < 0:
     #        raise ValueError("depth_cueing_intensity must be >=0.")
-    #    for atom in atoms:       
+    #    for atom in atoms:
     #        r,g,b = colors[atom.index] + (np.array([1,1,1]) - colors[atom.index])*(zmax - atom.z)/delta * depth_cueing
     #        if r>1: r=1
     #        if g>1: g=1
@@ -147,9 +147,9 @@ def render_image(atoms : Atoms,
         config_copy = atoms.copy()
         #config_copy.set_pbc([0,0,0]) #to avoid drawing bonds with invisible replicas
 
-        povray_settings=dict(canvas_width=width_res, 
-                                celllinewidth=CELLLINEWIDTH, 
-                                transparent=False, 
+        povray_settings=dict(canvas_width=width_res,
+                                celllinewidth=CELLLINEWIDTH,
+                                transparent=False,
                                 camera_type='orthographic',
                                 camera_dist=2,
                                 #textures = (['pale'] if depth_cueing else ['ase3']) * len(atoms),
@@ -162,30 +162,30 @@ def render_image(atoms : Atoms,
             povray_settings['cue_density'] = depth_cueing
 
         #print(atoms.positions[:,2])
-        
-        write('{0}.pov'.format(label), 
-            atoms, 
+
+        write('{0}.pov'.format(label),
+            atoms,
             format='pov',
-            radii = ATOMIC_RADIUS, 
+            radii = ATOMIC_RADIUS,
             rotation=rotations,
             colors=colors,
             povray_settings=povray_settings,
-            arrows_type = arrows               
+            arrows_type = arrows
         ).render()
         os.remove('{0}.pov'.format(label))
         os.remove('{0}.ini'.format(label))
-        
-        if outfile: 
-            #we have to do this here since we cannot just set the output path in write_pov, 
+
+        if outfile:
+            #we have to do this here since we cannot just set the output path in write_pov,
             #since the ini and pov files must be in the same folder, without absolute paths
             shutil.move('{0}.png'.format(label), outfile)
 
     else: # use ASE renderer (low quality, does not draw bonds)
-        write(outfile if outfile else label + '.png', 
-              atoms, 
-              format='png', 
-              radii = ATOMIC_RADIUS, 
-              rotation=rotations, 
+        write(outfile if outfile else label + '.png',
+              atoms,
+              format='png',
+              radii = ATOMIC_RADIUS,
+              rotation=rotations,
               colors=colors,
               maxwidth=width_res,
               scale=100)
@@ -193,15 +193,15 @@ def render_image(atoms : Atoms,
 
 
 
-def start_rendering(filename : str, 
-                    index : str = '-1', 
-                    movie : bool = False, 
+def start_rendering(filename : str,
+                    index : str = '-1',
+                    movie : bool = False,
                     framerate : int = 10,
                     custom_settings : dict = None,
                     **kwargs
                     ):
 
-    
+
     if index == '-1' and movie: #if we want to render a movie, we need to read the whole trajectory
         index = ':'
     atoms = read(filename, index=index) #read file (any format supported by ASE)
@@ -217,8 +217,8 @@ def start_rendering(filename : str,
         os.chdir('rendered_frames')
 
         for i, atom in enumerate(tqdm(atoms)):
-            render_image(atom, 
-                         label + '_{:05d}'.format(i), 
+            render_image(atom,
+                         label + '_{:05d}'.format(i),
                          custom_settings=custom_settings,
                          **kwargs)
         print('Rendering complete.')
@@ -231,7 +231,7 @@ def start_rendering(filename : str,
             print('Movie generated.')
     else:
         print('Rendering image...')
-        render_image(atoms, 
+        render_image(atoms,
                      label=label,
                      custom_settings=custom_settings,
                      **kwargs)
