@@ -120,7 +120,8 @@ def render_image(*,
     - nobonds: if True, do not draw bonds.
     - mol_indices: list with the indices of the atoms to consider as the molecule
     - custom_settings: dictionary with custom settings, containing:
-        'atomic_colors', 'atomic_radius', 'bond_radius', 'bond_line_width' and 'cell_line_width'.
+        'atomic_colors', 'atomic_radius', 'bond_radius', 'bond_line_width' and 'cell_line_width',
+        and 'nontransparent_atoms'
     """
 
     atoms = atoms.copy() #do not modify the original object
@@ -224,12 +225,25 @@ def render_image(*,
         else:
             textures = None
 
+        if custom_settings and custom_settings.get('nontransparent_atoms') is not None:
+            transmittances = []
+            textures = []
+            trans_map = {True: 0.0, False: 0.8}
+            texture_map = {True: 'ase3', False: 'pale'}
+            for i in range(len(atoms)):
+                nontrasp = i in custom_settings.get('nontransparent_atoms')
+                transmittances.append(trans_map[nontrasp])
+                textures.append(texture_map[nontrasp])
+        else:
+            transmittances = None
+
         povray_settings=dict(canvas_width=width_res,
                                 celllinewidth=CELLLINEWIDTH,
                                 transparent=False,
                                 camera_type='orthographic',
                                 camera_dist=2,
                                 textures=textures,
+                                transmittances=transmittances,
                                 bondlinewidth=BOND_LINE_WIDTH,
                             )
         if not nobonds:
