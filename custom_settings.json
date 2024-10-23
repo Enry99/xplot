@@ -15,7 +15,6 @@
     "bond_radius" : 0.8,
     "bond_line_width" : 0.15,
     "cell_line_width"  : 0,
-    "nontransparent_atoms": [1,7,33],
 
 
     "povray_old_style" : false
