@@ -24,6 +24,8 @@ from ase.io.pov import get_bondpairs
 from ase.data.colors import jmol_colors as ATOM_COLORS
 from ase import Atoms
 from ase.io import write
+from ase.geometry.geometry import get_layers
+from ase.build.tools import sort
 
 import xplot.ase_custom.povray
 from xplot.ase_custom import AtomsCustom
@@ -257,17 +259,21 @@ def render_image(*,
                 mol_zs = atoms.positions[mol_indices][:,2]
                 constant_fog_height = - (mol_zs.max() - mol_zs.min())
             else:
-                # Try to guess by creating a histogram of z values, and considering that
-                # the slab begins where the histogram is > 70% of the maximum density
-                nbins = 5*int(atoms.positions[:,2].max() - atoms.positions[:,2].min()) +1 #5bin/Angstrom
-                hist, bin_edges = np.histogram(atoms.positions[:,2], bins=nbins)
-                threshold = 0.4 * hist.max()
-                zmax_mol = atoms.positions[:,2].max()
-                #Get highest bin where the histogram is above the threshold
-                for i in range(len(hist)-1,-1,-1):
-                    if hist[i] > threshold:
-                        zmax_slab = bin_edges[i] + 1
+                #this should give much more intense peaks for the slab
+                sorted_atoms = sort(atoms, tags=atoms.positions[:,2])
+                layer_indicization, distances = get_layers(atoms=sorted_atoms, miller=(0,0,1),
+                                                tolerance=0.3)
+                bins_heights = [0] * len(distances)
+                for idx in layer_indicization:
+                    bins_heights[idx] += 1
+
+                threshold = 0.8 * max(bins_heights)
+                for i in range(len(distances)-1,-1,-1):
+                    if bins_heights[i] > threshold:
+                        zmax_slab = distances[i] +1
                         break
+
+                zmax_mol = atoms.positions[:,2].max()
                 zmax_slab = min(zmax_mol, zmax_slab)
                 constant_fog_height = - (zmax_mol - zmax_slab)
 
