@@ -1,3 +1,5 @@
+#for ase==3.22.1
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from ase.atoms import Atoms, default
@@ -304,8 +306,8 @@ class Atoms_custom(Atoms):
         #add constraints from the second
         othercp = other.copy()
         for constr in othercp.constraints:
-            if isinstance(constr, FixCartesian) or isinstance(constr, FixScaled):  
-                constr.a += n1         
+            if isinstance(constr, FixCartesian) or isinstance(constr, FixScaled):
+                constr.a += n1
                 self.constraints += [constr]
 
     def symbols2numbers(self, symbols) -> List[int]:
@@ -317,7 +319,7 @@ class Atoms_custom(Atoms):
                 if(len(s)>2): s = s[:2]
                 if(len(s)>1):
                     if(s[1].isdigit()):
-                        s = s[0]            
+                        s = s[0]
                 numbers.append(atomic_numbers[s])
             else:
                 numbers.append(int(s))
@@ -327,7 +329,7 @@ class Atoms_custom(Atoms):
 
 def todict_fixed(self):
     return {'name': 'FixCartesian',
-            'kwargs': {'a': self.a, 'mask': ~self.mask}}    
+            'kwargs': {'a': self.a, 'mask': ~self.mask}}
 
 def convert_constraint_flags(constraint_flags):
     """Convert Quantum ESPRESSO constraint flags to ASE Constraint objects.
@@ -411,7 +413,7 @@ def read_espresso_in_custom(fileobj):
         magmom = valence * data["system"].get(magnet_key, 0.0)
         species_info[label] = {"weight": weight, "pseudo": pseudo,
                                 "valence": valence, "magmom": magmom}
-    
+
 
     positions_card = get_atomic_positions(
         card_lines, n_atoms=data['system']['nat'], cell=cell, alat=alat)
@@ -421,7 +423,7 @@ def read_espresso_in_custom(fileobj):
     positions = [position[1] for position in positions_card]
     constraint_flags = [position[2] for position in positions_card]
     magmoms = [species_info[position[0]]["magmom"] for position in positions_card]
-    
+
 
     # TODO: put more info into the atoms object
     # e.g magmom, forces.
@@ -544,7 +546,7 @@ def write_espresso_in_custom(fd, atoms, input_data=None, pseudopotentials=None,
     atomic_species_str = []
     atomic_positions_str = []
 
-    
+
     if False: #do not force spin on, simply passtrhough
         nspin = input_parameters['system'].get('nspin', 1)  # 1 is the default
         if any(atoms.get_initial_magnetic_moments()):
@@ -593,10 +595,10 @@ def write_espresso_in_custom(fd, atoms, input_data=None, pseudopotentials=None,
         for label, pseudo in pseudopotentials.items():
             atomic_species_str.append(
                     '{label} {mass} {pseudo}\n'.format(
-                        label=label, 
+                        label=label,
                         mass=Atom(label_to_symbol(label)).mass,
                         pseudo=pseudo))
-         
+
         for atom, label in zip(atoms, atoms.get_custom_labels()):
 
             # only inclued mask if something is fixed
@@ -797,7 +799,7 @@ def construct_namelist_custom(parameters=None, warn=False, **kwargs):
             #NOTE: It will probably be fixed in next ase release (3.23)
             for arg_key in cp_parameters_section:
                 if arg_key.split('(')[0].strip().lower() == key.lower():
-                    sec_list[arg_key] = parameters[section].pop(arg_key)                 
+                    sec_list[arg_key] = parameters[section].pop(arg_key)
             cp_parameters = parameters.copy()
             for arg_key in cp_parameters:
                 if arg_key.split('(')[0].strip().lower() == key.lower():
@@ -1074,7 +1076,7 @@ def read_espresso_out_custom(fileobj, index=-1, results_required=True):
             ibzkpts = np.array(ibzkpts)
             weights = np.array(weights)
 
-        
+
         # Bands
         kpts = None
         kpoints_warning = "Number of k-points >= 100: " + \
@@ -2099,8 +2101,8 @@ adaptive 1 jitter}}"""
         for pos, arrow, diam in zip(self.positions, self.arrows, self.diameters):
             modulus = np.linalg.norm(arrow)
             normalized_arrow = arrow / maxlength
-            if modulus/maxlength > 0.1: # avoid degenerate primitives 
-                cylinder_pos_dw = pos - 0.8*normalized_arrow 
+            if modulus/maxlength > 0.1: # avoid degenerate primitives
+                cylinder_pos_dw = pos - 0.8*normalized_arrow
                 cylinder_pos_up = pos + 0.7*normalized_arrow
                 arrows += f'cylinder {{{pa(cylinder_pos_dw)}, '+\
                                         f'{pa(cylinder_pos_up)}, 0.1 texture{{pigment '+\
@@ -2468,7 +2470,7 @@ ase.io.espresso.read_espresso_in = read_espresso_in_custom
 ase.io.espresso.read_espresso_out = read_espresso_out_custom
 ase.io.extxyz._read_xyz_frame = _read_xyz_frame_custom
 ase.io.extxyz.write_xyz = write_xyz_custom
-from render_atoms import POVRAY_OLD_STYLE
+from xplot import POVRAY_OLD_STYLE
 if 'POVRAY_OLD_STYLE' in globals() and POVRAY_OLD_STYLE:
     pass
 else:
