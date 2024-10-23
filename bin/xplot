@@ -35,6 +35,7 @@ def cli_parse():
     parser.add_argument('-rc','--range-cut', nargs=2, type=float, help='Select range [zmin, zmax] to be displayed.')
     parser.add_argument('-cv','--cut-vacuum', action='store_true', help='Cut vacuum above and below the slab.')
     parser.add_argument('-cc', '--colorcode', type=str, choices=['forces', 'magmoms', 'coordnum'], help='Color atoms according to a property (e.g. forces, magnetic moments, coordination number).')
+    parser.add_argument('--ccrange', nargs=2, type=float, help='[min, max] values for the colorcode.')
     parser.add_argument('-arr', '--arrows', type=str, choices=['forces', 'magmoms'], help='Draw arrows representing the vectors, with lenghth proportional to the magnitude.')
     parser.add_argument('-nobd','--nobonds', action='store_true', default=False, help='Do not show bonds' )
 
@@ -97,6 +98,7 @@ def main():
                     range_cut=args.range_cut,
                     cut_vacuum=args.cut_vacuum,
                     colorcode=args.colorcode,
+                    ccrange=args.ccrange,
                     arrows=args.arrows,
                     nobonds = args.nobonds,
                     povray = not args.nopov,
