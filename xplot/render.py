@@ -174,9 +174,10 @@ def render_image(*,
 
     if supercell is not None:
         if mol_indices is not None:
-            slab = Atoms([atom for i, atom in enumerate(atoms) if i not in mol_indices])
+            slab_indices = [i for i in range(len(atoms)) if i not in mol_indices]
+            slab = atoms[slab_indices]
             slab *= supercell
-            atoms = slab + Atoms([atom for i, atom in enumerate(atoms) if i in mol_indices])
+            atoms = slab + atoms[mol_indices]
             mol_indices = [i + len(slab) for i in mol_indices]
         else:
             atoms *= supercell
@@ -257,7 +258,10 @@ def render_image(*,
         config_copy = atoms.copy()
         #config_copy.set_pbc([0,0,0]) #to avoid drawing bonds with invisible replicas
 
-        dz = atoms.cell[2,2] - atoms.positions[:,2].max() + 0.1
+        if 'x' not in rotations and 'y' not in rotations:
+            dz = atoms.cell[2,2] - atoms.positions[:,2].max() + 0.1
+        else:
+            dz = 0
         camera_dist = max(2, dz)
 
         if mol_indices is not None and highlihgt_mol:
