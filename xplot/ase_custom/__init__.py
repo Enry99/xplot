@@ -9,6 +9,8 @@ Need to be monkey patched at runtime by importin this module.
 #              added ground fog height and changed pale texture definition,
 #              small fix for povray, that was not monkey-patching correctly the
 #              write_pov method of POVRAY class.
+#-24 Oct 2024: added fix for read_espresso_out to skip initial positions in restarts
+#              (taken from script_dinamiche)
 
 # Runtime patch for read/write
 import xplot.ase_custom.espresso
