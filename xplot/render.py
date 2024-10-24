@@ -23,6 +23,7 @@ from pathlib import Path
 
 import numpy as np
 from ase.io.pov import get_bondpairs
+from ase.data import covalent_radii
 from ase.data.colors import jmol_colors as ATOM_COLORS
 from ase import Atoms
 from ase.io import write
@@ -77,6 +78,38 @@ def _get_colorcoded_colors(atoms: Atoms, colorcode: str, ccrange : list | None =
     colors = [scalar_map.to_rgba(q)[:3] for q in quantity]
 
     return colors
+
+
+def _calculate_ground_fog_height(atoms: Atoms, mol_indices: list[float] | None = None) -> float:
+    # Calculate height of ground fog by finding where the slab begins,
+    # if we have a slab-molecule system
+
+    if mol_indices is not None:
+        mol_zs = atoms.positions[mol_indices][:,2]
+        constant_fog_height = - (mol_zs.max() - mol_zs.min())
+    else:
+        #this should give much more intense peaks for the slab
+        sorted_atoms = sort(atoms, tags=atoms.positions[:,2])
+        zmax_mol = sorted_atoms.positions[-1,2]
+        layer_indicization, distances = get_layers(atoms=sorted_atoms, miller=(0,0,1),
+                                        tolerance=0.3)
+
+        #use occupied voulme rather than number of atoms, to avoid
+        #planar molecules such as benzene to be considered as a slab layer
+        bins_heights = [0] * len(distances)
+        for i, idx in enumerate(layer_indicization):
+            bins_heights[idx] += 4/3*np.pi*(covalent_radii[sorted_atoms[i].number])**3
+
+        threshold = 0.8 * max(bins_heights)
+        for i in range(len(distances)-1,-1,-1):
+            if bins_heights[i] > threshold:
+                zmax_slab = distances[i] +1
+                break
+
+        zmax_slab = min(zmax_mol, zmax_slab)
+        constant_fog_height = - (zmax_mol - zmax_slab)
+
+    return constant_fog_height
 
 
 def render_image(*,
@@ -252,32 +285,9 @@ def render_image(*,
                             )
         if not nobonds:
             povray_settings['bondatoms'] = get_bondpairs(config_copy, radius=BOND_RADIUS)
+
         if depth_cueing is not None:
-
-            # Calculate height of ground fog by finding where the slab begins,
-            # if we have a slab-molecule system
-
-            if mol_indices is not None:
-                mol_zs = atoms.positions[mol_indices][:,2]
-                constant_fog_height = - (mol_zs.max() - mol_zs.min())
-            else:
-                #this should give much more intense peaks for the slab
-                sorted_atoms = sort(atoms, tags=atoms.positions[:,2])
-                layer_indicization, distances = get_layers(atoms=sorted_atoms, miller=(0,0,1),
-                                                tolerance=0.3)
-                bins_heights = [0] * len(distances)
-                for idx in layer_indicization:
-                    bins_heights[idx] += 1
-
-                threshold = 0.8 * max(bins_heights)
-                for i in range(len(distances)-1,-1,-1):
-                    if bins_heights[i] > threshold:
-                        zmax_slab = distances[i] +1
-                        break
-
-                zmax_mol = atoms.positions[:,2].max()
-                zmax_slab = min(zmax_mol, zmax_slab)
-                constant_fog_height = - (zmax_mol - zmax_slab)
+            constant_fog_height = _calculate_ground_fog_height(atoms, mol_indices)
 
             povray_settings['depth_cueing'] = True
             povray_settings['cue_density'] = depth_cueing
