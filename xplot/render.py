@@ -257,6 +257,9 @@ def render_image(*,
         config_copy = atoms.copy()
         #config_copy.set_pbc([0,0,0]) #to avoid drawing bonds with invisible replicas
 
+        dz = atoms.cell[2,2] - atoms.positions[:,2].max() + 0.1
+        camera_dist = max(2, dz)
+
         if mol_indices is not None and highlihgt_mol:
             textures = ['ase3' if i in mol_indices else 'pale' for i in range(len(atoms))]
         else:
@@ -278,7 +281,7 @@ def render_image(*,
                                 celllinewidth=CELLLINEWIDTH,
                                 transparent=False,
                                 camera_type='orthographic',
-                                camera_dist=2,
+                                camera_dist=camera_dist,
                                 textures=textures,
                                 transmittances=transmittances,
                                 bondlinewidth=BOND_LINE_WIDTH,
