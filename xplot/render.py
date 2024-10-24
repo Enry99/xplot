@@ -7,6 +7,8 @@
 
 #CHANGELOG:
 # - 17 Oct 2024: taken from xplot, commit c0d4764.
+# - 23 Oct 2024: added transparency, added ground fog
+#                and automatic identification of z_max_slab for fog.
 
 
 """
@@ -180,9 +182,9 @@ def render_image(*,
         colors = [ ATOM_COLORS[atom.number] for atom in atoms]
 
         #then, substitute user-defined colors
-        try:
+        if isinstance(atoms, AtomsCustom):
             species = atoms.get_custom_labels()
-        except AttributeError:
+        else:
             species = atoms.get_chemical_symbols()
 
         for i, sp in enumerate(species):
