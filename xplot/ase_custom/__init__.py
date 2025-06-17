@@ -11,6 +11,9 @@ Need to be monkey patched at runtime by importin this module.
 #              write_pov method of POVRAY class.
 #-24 Oct 2024: added fix for read_espresso_out to skip initial positions in restarts
 #              (taken from script_dinamiche)
+#-17 Jun 2025: align with 11 Jun commit to xsorb:
+#              update to ase 3.25.0
+#              explictly marked the custom parts with #### CUSTOM ...
 
 # Runtime patch for read/write
 import xplot.ase_custom.espresso
