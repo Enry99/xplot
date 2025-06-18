@@ -12,15 +12,15 @@ Need to be monkey patched at runtime by importin this module.
 #-24 Oct 2024: added fix for read_espresso_out to skip initial positions in restarts
 #              (taken from script_dinamiche)
 #-17 Jun 2025: align with 11 Jun commit to xsorb:
-#              update to ase 3.25.0
-#              explictly marked the custom parts with #### CUSTOM ...
+#              -update to ase 3.25.0
+#              -explictly marked the custom parts with #### CUSTOM ...
 
 # Runtime patch for read/write
-import xplot.ase_custom.espresso
-import xplot.ase_custom.vasp
-import xplot.ase_custom.xyz
-from xplot.ase_custom.atoms import AtomsCustom
-from xplot.ase_custom.xyz import write_xyz_custom
+import xsorb.ase_custom.espresso
+import xsorb.ase_custom.vasp
+import xsorb.ase_custom.extxyz
+from xsorb.ase_custom.atoms import AtomsCustom
+from xsorb.ase_custom.extxyz import write_xyz_custom
 
 # Runtime patch for rendering is not called here but only explicitly
-# with from xsorb.ase_custom import povray when necessary
+# with rom xsorb.ase_custom import povray when necessary

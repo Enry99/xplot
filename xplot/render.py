@@ -17,6 +17,7 @@ Module to render an image of an Atoms object using POVray or ASE renderer.
 """
 
 from __future__ import annotations
+from typing import TYPE_CHECKING
 import shutil
 import os
 from pathlib import Path
@@ -24,29 +25,49 @@ from pathlib import Path
 import numpy as np
 from ase.io.pov import get_bondpairs
 from ase.data import covalent_radii
-from ase.data.colors import jmol_colors as ATOM_COLORS
-from ase import Atoms
+from ase.data.colors import jmol_colors
 from ase.io import write
 from ase.geometry.geometry import get_layers
 from ase.build.tools import sort
 
-import xplot.ase_custom.povray
-from xplot.ase_custom import AtomsCustom
+from xplot.settings import vesta_colors
+import xplot.ase_custom.povray # monkey patch for povray. pylint: disable=unused-import
+from xplot.settings import (
+    ATOMIC_RADIUS_DEFAULT, BOND_RADIUS_DEFAULT,
+    BOND_LINE_WIDTH_DEFAULT, CELL_LINE_WIDTH_DEFAULT)
 
-#scaling factors for drawing atoms and bonds
-ATOMIC_RADIUS_DEFAULT = 0.6
-BOND_RADIUS_DEFAULT = 0.8
-BOND_LINE_WIDTH_DEFAULT = 0.1
+if TYPE_CHECKING:
+    from ase import Atoms
+    from xplot.ase_custom import AtomsCustom
 
 
 def _get_colorcoded_colors(atoms: Atoms, colorcode: str, ccrange : list | None = None) -> list:
+    """
+    Get colors for atoms based on the specified colorcode.
 
-    from matplotlib import colormaps, cm  #matplotlib==3.9.0
-    from matplotlib.colors import Normalize
+    Parameters
+    ----------
+    atoms : Atoms
+        Atoms object containing the atomic structure.
+    colorcode : str
+        The property to color the atoms by. Options are 'forces', 'magmoms', 'coordnum'.
+    ccrange : list, optional
+        Range of values for color coding. If None, the range is automatically set to the
+        min and max of the quantity.
+
+    Returns
+    -------
+    colors : list
+        List of RGB colors for each atom, normalized to the specified range.
+    """
+
+    # import here to reduce loading time when not needed
+    from matplotlib import colormaps, cm  #matplotlib==3.9.0 # pylint: disable=import-outside-toplevel
+    from matplotlib.colors import Normalize # pylint: disable=import-outside-toplevel
 
     if colorcode == 'forces':
         try:
-            quantity = [np.linalg.norm(force) for force in atoms.get_forces()]
+            quantity = np.linalg.norm(atoms.get_forces(), axis=1)
         except Exception as exc:
             raise ValueError("Forces are not present.") from exc
         cmap = colormaps.get_cmap('Blues')
@@ -59,8 +80,8 @@ def _get_colorcoded_colors(atoms: Atoms, colorcode: str, ccrange : list | None =
         cmap = colormaps.get_cmap('coolwarm')
 
     elif colorcode == 'coordnum':
-        from ase.neighborlist import NeighborList, natural_cutoffs
-        cutoffs = natural_cutoffs(atoms, mult=1.2)
+        from ase.neighborlist import NeighborList, natural_cutoffs # pylint: disable=import-outside-toplevel
+        cutoffs = natural_cutoffs(atoms, mult=1.3)
         nl = NeighborList(cutoffs, skin=0, self_interaction=False, bothways=True)
         nl.update(atoms)
         connmat = nl.get_connectivity_matrix()
@@ -81,8 +102,37 @@ def _get_colorcoded_colors(atoms: Atoms, colorcode: str, ccrange : list | None =
 
 
 def _calculate_ground_fog_height(atoms: Atoms, mol_indices: list[float] | None = None) -> float:
-    # Calculate height of ground fog by finding where the slab begins,
-    # if we have a slab-molecule system
+    """
+    Calculate the height of ground fog for visualization purposes.
+    This function determines the fog height by analyzing the structure of a system,
+    particularly distinguishing between slab and molecular components.
+    The fog height is used for depth cueing in visualizations, providing a sense of depth.
+
+    Parameters
+    ----------
+    atoms : Atoms
+    mol_indices : list[float] | None, optional
+        List of indices corresponding to molecular atoms. If provided, the fog
+        height is calculated based on the z-coordinate range of these atoms.
+        If None, the function attempts to distinguish between slab and molecular
+        regions automatically.
+
+    Returns
+    -------
+    float
+        The calculated ground fog height as a negative value representing the
+        vertical extent from the top of the slab to the top of the molecules.
+
+    Notes
+    -----
+    When mol_indices is None:
+        - The function sorts atoms by z-coordinate and uses layer analysis to
+          identify slab regions.
+        - Layers are identified using Miller indices (0,0,1) with a tolerance of 0.3.
+        - Volume-based thresholding (80% of max occupied volume) is used to
+          distinguish slab layers from molecular regions.
+        - Occupied volume is estimated using covalent radii assuming spherical atoms.
+    """
 
     if mol_indices is not None:
         mol_zs = atoms.positions[mol_indices][:,2]
@@ -94,7 +144,7 @@ def _calculate_ground_fog_height(atoms: Atoms, mol_indices: list[float] | None =
         layer_indicization, distances = get_layers(atoms=sorted_atoms, miller=(0,0,1),
                                         tolerance=0.3)
 
-        #use occupied voulme rather than number of atoms, to avoid
+        #use occupied volume rather than number of atoms, to avoid
         #planar molecules such as benzene to be considered as a slab layer
         bins_heights = [0] * len(distances)
         for i, idx in enumerate(layer_indicization):
@@ -134,31 +184,51 @@ def render_image(*,
     """
     Render an image of an Atoms object using POVray or ASE renderer.
 
-    Args:
-    - atoms: Atoms object to render.
-    - outfile: path to the output file.
-    - povray: if True, use POVray renderer (high quality, CPU intensive). If False, use ASE renderer
-        (low quality, does not draw bonds).
-    - width_res: width resolution of the output image.
-    - rotations: string with the rotations to apply to the image.
-    - supercell: list with the number of replicas in each direction.
-        If mol_indices is provided, only the slab is replicated.
-    - wrap: if True, wrap the atoms.
-    - transl_vector: translation vector.
-    - depth_cueing: intensity of depth cueing effect. If None, no depth cueing is applied.
-    - range_cut: tuple with the range of z values to keep. If None, no range cut is applied.
-    - cut_vacuum: if True, cut the vacuum in the z direction.
-    - colorcode: if not None, color the atoms according to the specified quantity.
-        Options are 'forces', 'magmoms' and 'coordnum'.
-    - ccrange: list with the range of values to use for colorcoding.
-        If None, the range is automatically set to the min and max of the quantity.
-    - arrows: if not None, draw arrows for the specified quantity.
-        Options are 'forces', 'magmoms' and 'coordnum'.
-    - nobonds: if True, do not draw bonds.
-    - mol_indices: list with the indices of the atoms to consider as the molecule
-    - custom_settings: dictionary with custom settings, containing:
+    Parameters
+    ----------
+    atoms : Atoms | AtomsCustom
+        Atoms object to render.
+    outfile : str
+        Path to the output file.
+    povray : bool, optional
+        If True, use POVray renderer (high quality, CPU intensive). If False, use ASE renderer
+        (low quality, does not draw bonds). Default is True.
+    width_res : int | None, optional
+        Width resolution of the output image. Default is 700.
+    rotations : str, optional
+        String with the rotations to apply to the image. Default is ''.
+    supercell : list | None, optional
+        List with the number of replicas in each direction.
+        If mol_indices is provided, only the slab is replicated. Default is None.
+    wrap : bool, optional
+        If True, wrap the atoms. Default is False.
+    transl_vector : list[float] | None, optional
+        Translation vector. Default is None.
+    depth_cueing : float | None, optional
+        Intensity of depth cueing effect. If None, no depth cueing is applied. Default is None.
+    range_cut : tuple | None, optional
+        Tuple with the range of z values to keep. If None, no range cut is applied. Default is None.
+    cut_vacuum : bool, optional
+        If True, cut the vacuum in the z direction. Default is False.
+    colorcode : str | None, optional
+        If not None, color the atoms according to the specified quantity.
+        Options are 'forces', 'magmoms' and 'coordnum'. Default is None.
+    ccrange : list | None, optional
+        List with the range of values to use for colorcoding.
+        If None, the range is automatically set to the min and max of the quantity. Default is None.
+    arrows : str | None, optional
+        If not None, draw arrows for the specified quantity.
+        Options are 'forces', 'magmoms' and 'coordnum'. Default is None.
+    nobonds : bool, optional
+        If True, do not draw bonds. Default is False.
+    mol_indices : list | None, optional
+        List with the indices of the atoms to consider as the molecule. Default is None.
+    highlihgt_mol : bool, optional
+        If True, highlight molecular atoms. Default is False.
+    custom_settings : dict | None, optional
+        Dictionary with custom settings, containing:
         'atomic_colors', 'atomic_radius', 'bond_radius', 'bond_line_width' and 'cell_line_width',
-        and 'nontransparent_atoms'
+        and 'nontransparent_atoms'. Default is None.
     """
 
     atoms = atoms.copy() #do not modify the original object
@@ -326,3 +396,24 @@ def render_image(*,
               colors=colors,
               maxwidth=width_res,
               scale=100)
+
+
+# TODO:
+# -introdurre opzione nel file di config.json per colorcode VESTA (prendere da pymatgen) sia in plot sites che in generazione immagini (per vasp users)
+# -solved autobox in povray with ase 3.25:
+#     pvars = PlottingVariables(atoms, scale=1.0, radii=0.6, rotation='-90x', show_unit_cell=3)
+#     pov_obj = POVRAY.from_PlottingVariables(pvars, **povray_settings)
+# XPLOT: bond order: draw double/triple bonds with povray for selected atom pairs (a,b). usare pymatgen CovalentBondNN (farlo solo sugli indici della molecola), e ase.io.pov set_high_bondorder_pairs
+# XPLOT: vesta default isosurface: mean(|rho|) + n * std(|rho|)  (n=2 o 3)
+#     from ase.calculators.vasp import VaspChargeDensity
+#     vcd = VaspChargeDensity('CHGCAR')
+#     density_grid = np.abs(vcd.chg)
+#     density_grid = density_grid * (0.529177249 ** 3) # convert volume in Angstrom^3 to bohr^3
+#
+
+# TODO:
+# -do all manual tests
+# -setup pyproject.toml
+# -setup README.md
+# try pip install -e . in a new virtualenv
+# publish on pypi
