@@ -23,10 +23,12 @@ import os
 from pathlib import Path
 
 import numpy as np
-from ase.io.pov import get_bondpairs
+from ase.io.pov import get_bondpairs, set_high_bondorder_pairs
 from ase.data import covalent_radii
 from ase.data.colors import jmol_colors
 from ase.io import write
+from ase.io.utils import PlottingVariables
+from ase.io.pov import POVRAY
 from ase.geometry.geometry import get_layers
 from ase.build.tools import sort
 
@@ -162,25 +164,109 @@ def _calculate_ground_fog_height(atoms: Atoms, mol_indices: list[float] | None =
     return constant_fog_height
 
 
+def _calculate_bondorder_pairs(atoms: Atoms, mol_indices : list[int]) -> dict:
+    '''
+    Calculate pairs of atoms with high bond order using Pymatgen's CovalentBondNN.
+    '''
+
+    from pymatgen.analysis.local_env import CovalentBondNN # pylint: disable=import-outside-toplevel
+    from pymatgen.io.ase import AseAtomsAdaptor # pylint: disable=import-outside-toplevel
+
+    covalent_bond_nn = CovalentBondNN()
+    pymat_mol = AseAtomsAdaptor.get_molecule(atoms)
+
+    high_bondorder_pairs = {}
+    for atom_id in mol_indices:
+        neighbors = covalent_bond_nn.get_nn_info(pymat_mol, atom_id)
+
+        for neighbor in neighbors:
+            bondorder = int(neighbor['weight'])
+            # avoid duplicate pairs
+            if  bondorder >= 2 and (neighbor['site_index'], atom_id) \
+                not in high_bondorder_pairs:
+                high_bondorder_pairs[(atom_id, neighbor['site_index'])] = \
+                    ((0, 0, 0), bondorder, (0.17, 0.17, 0))
+
+    return high_bondorder_pairs
+
+
+def _get_isosurfaces(filename, format='cube', threshold=None):
+    """
+    Get isosurfaces from a file in cube format.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the file containing the isosurfaces.
+    format : str, optional
+        Format of the file. Default is 'cube'.
+    threshold : float, optional
+        Threshold value for the isosurfaces.
+        If None, a default value is used (as in VESTA).
+
+    Returns
+    -------
+    list
+        List of isosurfaces.
+    """
+
+    # data_dict = read("chargediff.cube", read_data=True, full_output=True)
+    # density_grid = np.abs(data_dict["data"])
+
+    from ase.calculators.vasp import VaspChargeDensity
+    vcd = VaspChargeDensity('CHGCAR')
+
+    # convert volume in Angstrom^3 to bohr^3
+    density_grid = np.array(vcd.chg) * (0.529177249 ** 3)
+
+    print("min:", np.min(density_grid))
+    print("max:", np.max(density_grid))
+
+
+    density_grid = np.abs(density_grid)
+    print(f"Density grid mean + 2 * std: {np.mean(density_grid) + 2 * np.std(density_grid)}")  # VESTA DEFAULT ISOSURFACE
+
+
+    density_grid = data_dict["data"]
+    print(density_grid.shape)
+    density_grid = zoom(density_grid, 2, order=3)
+    print(density_grid.shape)
+
+    iso_positive = POVRAYIsosurface.from_POVRAY(
+        povray=pov_obj,
+        density_grid=density_grid,
+        cut_off=ISO_CUTOFF,
+        color=(0.80, 0.80, 0.0, 0.3))
+
+    iso_negative = POVRAYIsosurface.from_POVRAY(
+        povray=pov_obj,
+        density_grid=density_grid,
+        cut_off=-ISO_CUTOFF,
+        color=(0.00, 0.80, 0.80, 0.3))
+
+
+
+
 def render_image(*,
                  atoms : Atoms | AtomsCustom,
                  outfile : str,
-                 povray : bool = True,
-                 width_res : int | None = 700,
                  rotations : str = '',
                  supercell : list | None = None,
                  wrap : bool = False,
-                 transl_vector : list[float] | None = None,
-                 depth_cueing : float | None = None,
                  range_cut : tuple | None = None,
                  cut_vacuum : bool = False,
+                 bonds : str = 'single',
+                 depth_cueing : float | None = None,
+                 highlihgt_mol : bool = False,
                  colorcode : str | None = None,
                  ccrange : list | None = None,
                  arrows : str | None = None,
-                 nobonds : bool = False,
+                 width_res : int | None = 700,
+                 povray : bool = True,
+                 transl_vector : list[float] | None = None,
                  mol_indices : list | None = None,
-                 highlihgt_mol : bool = False,
-                 custom_settings : dict | None = None):
+                 custom_settings : dict | None = None,
+                 **kwargs):
     """
     Render an image of an Atoms object using POVray or ASE renderer.
 
@@ -190,11 +276,6 @@ def render_image(*,
         Atoms object to render.
     outfile : str
         Path to the output file.
-    povray : bool, optional
-        If True, use POVray renderer (high quality, CPU intensive). If False, use ASE renderer
-        (low quality, does not draw bonds). Default is True.
-    width_res : int | None, optional
-        Width resolution of the output image. Default is 700.
     rotations : str, optional
         String with the rotations to apply to the image. Default is ''.
     supercell : list | None, optional
@@ -202,14 +283,16 @@ def render_image(*,
         If mol_indices is provided, only the slab is replicated. Default is None.
     wrap : bool, optional
         If True, wrap the atoms. Default is False.
-    transl_vector : list[float] | None, optional
-        Translation vector. Default is None.
-    depth_cueing : float | None, optional
-        Intensity of depth cueing effect. If None, no depth cueing is applied. Default is None.
     range_cut : tuple | None, optional
         Tuple with the range of z values to keep. If None, no range cut is applied. Default is None.
     cut_vacuum : bool, optional
         If True, cut the vacuum in the z direction. Default is False.
+    bonds : str, optional
+        Type of bonds to draw. Options are 'none', 'single' (default), 'multiple'.
+    depth_cueing : float | None, optional
+        Intensity of depth cueing effect. If None, no depth cueing is applied. Default is None.
+    highlihgt_mol : bool, optional
+        If True, highlight molecular atoms with a different color. Default is False.
     colorcode : str | None, optional
         If not None, color the atoms according to the specified quantity.
         Options are 'forces', 'magmoms' and 'coordnum'. Default is None.
@@ -219,16 +302,19 @@ def render_image(*,
     arrows : str | None, optional
         If not None, draw arrows for the specified quantity.
         Options are 'forces', 'magmoms' and 'coordnum'. Default is None.
-    nobonds : bool, optional
-        If True, do not draw bonds. Default is False.
+    width_res : int | None, optional
+        Width resolution of the output image. Default is 700.
+    povray : bool, optional
+        If True, use POVray renderer (high quality, CPU intensive). If False, use ASE renderer
+        (low quality, does not draw bonds). Default is True.
+    transl_vector : list[float] | None, optional
+        Translation vector for the molecule. Default is None.
     mol_indices : list | None, optional
         List with the indices of the atoms to consider as the molecule. Default is None.
-    highlihgt_mol : bool, optional
-        If True, highlight molecular atoms. Default is False.
-    custom_settings : dict | None, optional
-        Dictionary with custom settings, containing:
-        'atomic_colors', 'atomic_radius', 'bond_radius', 'bond_line_width' and 'cell_line_width',
-        and 'nontransparent_atoms'. Default is None.
+    **kwargs : dict, optional
+        additional settings, including:
+        'atomic_colors', 'color_scheme', 'atomic_radius', 'bond_radius', 'bond_line_width',
+        'cell_line_width', 'nontransparent_atoms'. Default is None.
     """
 
     atoms = atoms.copy() #do not modify the original object
@@ -361,7 +447,12 @@ def render_image(*,
                                 bondlinewidth=BOND_LINE_WIDTH,
                             )
         if not nobonds:
-            povray_settings['bondatoms'] = get_bondpairs(config_copy, radius=BOND_RADIUS)
+            bondatoms = get_bondpairs(config_copy, radius=BOND_RADIUS)
+            high_bondorder_pairs = _calculate_bondorder_pairs(config_copy)
+            bondpairs = set_high_bondorder_pairs(bondpairs, high_bondorder_pairs)
+        else:
+            bondatoms = None
+        povray_settings['bondatoms'] = bondatoms
 
         if depth_cueing is not None:
             constant_fog_height = _calculate_ground_fog_height(atoms, mol_indices)
@@ -370,6 +461,13 @@ def render_image(*,
             povray_settings['cue_density'] = depth_cueing
             povray_settings['constant_fog_height'] = constant_fog_height
 
+
+        pvars = PlottingVariables(atoms,
+            radii=ATOMIC_RADIUS,
+            rotation=rotations,
+            show_unit_cell=3,
+        )
+        pov_obj = POVRAY.from_PlottingVariables(pvars, **povray_settings)
 
         #Do the actual rendering
         write(f'{label}.pov',
@@ -403,7 +501,6 @@ def render_image(*,
 # -solved autobox in povray with ase 3.25:
 #     pvars = PlottingVariables(atoms, scale=1.0, radii=0.6, rotation='-90x', show_unit_cell=3)
 #     pov_obj = POVRAY.from_PlottingVariables(pvars, **povray_settings)
-# XPLOT: bond order: draw double/triple bonds with povray for selected atom pairs (a,b). usare pymatgen CovalentBondNN (farlo solo sugli indici della molecola), e ase.io.pov set_high_bondorder_pairs
 # XPLOT: vesta default isosurface: mean(|rho|) + n * std(|rho|)  (n=2 o 3)
 #     from ase.calculators.vasp import VaspChargeDensity
 #     vcd = VaspChargeDensity('CHGCAR')

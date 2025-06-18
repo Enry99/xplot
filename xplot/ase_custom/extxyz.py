@@ -16,7 +16,7 @@ from ase.io.extxyz import (XYZError, set_calc_and_arrays, key_val_str_to_dict, p
 from ase.utils import writer
 from ase.io.espresso import label_to_symbol
 
-from xsorb.ase_custom.atoms import AtomsCustom, extract_number_from_string
+from xplot.ase_custom.atoms import AtomsCustom, extract_number_from_string
 
 
 def _read_xyz_frame_custom(lines, natoms, properties_parser=key_val_str_to_dict,
