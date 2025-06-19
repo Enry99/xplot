@@ -14,6 +14,8 @@ Need to be monkey patched at runtime by importin this module.
 #-17 Jun 2025: align with 11 Jun commit to xsorb:
 #              -update to ase 3.25.0
 #              -explictly marked the custom parts with #### CUSTOM ...
+# -19 Jun 2025: improved arrows in povray, removed monkey patching of
+#               PlottingVariables, now using directly POVRAY class.
 
 # Runtime patch for read/write
 import xplot.ase_custom.espresso
