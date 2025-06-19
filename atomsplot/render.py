@@ -9,6 +9,10 @@
 # - 17 Oct 2024: taken from atomsplot, commit c0d4764.
 # - 23 Oct 2024: added transparency, added ground fog
 #                and automatic identification of z_max_slab for fog.
+# - 19 Jun 2025: atomsplot v1.0
+#                added pymatgen's CovalentBondNN for high bond order pairs.
+#                added isosurface rendering for charge density grids.
+#                added vesta/cpk colors.
 
 
 """

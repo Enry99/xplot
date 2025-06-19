@@ -2,6 +2,8 @@
 
 Atomsplot is a small Python command-line program to render images of atomic structures using [ASE](https://wiki.fysik.dtu.dk/ase/index.html) and [POV-Ray](http://www.povray.org/).
 
+It was developed as a spin-off of the image generation module in the [xsorb](https://github.com/Enry99/xsorb) code to automate the study of molecular adsorption (E. Pedretti, P. Restuccia, M.C. Righi, Comput. Phys. Commun. 291 (2023), 108827)
+
 ## Installation
 First, install the program with
 ```sh
