@@ -37,7 +37,7 @@ def _deduce_chg_format(filename: str) -> str | None:
     else:
         return None
 
-def _read_charge_file(filename, fmt='cube', upscale=None):
+def _read_charge_file(filename, fmt='cube', upscale : int | None =None):
     """
     Read charge density file (cube of VASP CHGCAR/CHG format).
 
@@ -76,8 +76,11 @@ def _read_charge_file(filename, fmt='cube', upscale=None):
 
     if upscale is not None and upscale > 1:
         logging.info('Upscaling charge density grid...')
-        from scipy.ndimage import zoom #pylint: disable=import-outside-toplevel
-        density_grid = zoom(density_grid, upscale, order=3)
+        try:
+            from scipy.ndimage import zoom #pylint: disable=import-outside-toplevel
+            density_grid = zoom(density_grid, upscale, order=3)
+        except ImportError:
+            logging.error('scipy is not installed. Cannot upscale the charge density grid.')
 
     return atoms, density_grid
 
