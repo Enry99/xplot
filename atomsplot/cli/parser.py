@@ -1,10 +1,10 @@
 '''
-Argument parser for xplot command line interface.
+Argument parser for atomsplot command line interface.
 '''
 
 import argparse
 
-import xplot
+import atomsplot
 
 def _positive_int(value):
     ivalue = int(value)
@@ -26,19 +26,19 @@ class CustomFormatter(argparse.RawDescriptionHelpFormatter,
 
 def cli_parse():
     """
-    Parse command line arguments for xplot.
+    Parse command line arguments for atomsplot.
 
     Returns:
         argparse.Namespace: Parsed command line arguments.
     """
 
     parser = argparse.ArgumentParser(
-        prog='xplot',
-        description=xplot.__doc__,
+        prog='atomsplot',
+        description=atomsplot.__doc__,
         formatter_class=CustomFormatter,
         allow_abbrev=False)
 
-    parser.add_argument('-v', '--version', action='version', version='%(prog)s '+xplot.__version__)
+    parser.add_argument('-v', '--version', action='version', version='%(prog)s '+atomsplot.__version__)
 
     # input/output options
     parser.add_argument('filename',
@@ -92,15 +92,19 @@ def cli_parse():
                         help='Draw bonds between atoms.')
 
     # color and style options
+    parser.add_argument('-hc', '--hide-cell',
+                    action='store_true',
+                    default=False,
+                    help='Hide the cell box.')
     parser.add_argument('-dc','--depth-cueing',
                     nargs='?',
                     type=_positive_float,
                     const=1.0,
                     help='Enable depth cueing. Optional parameter: intensity (>0).')
-    parser.add_argument('-hm', '--highlight-mol',
-                    action='store_true',
-                    default=False,
-                    help='Highlight the molecule (draw atoms in a different color).')
+    # parser.add_argument('-hm', '--highlight-mol',
+    #                 action='store_true',
+    #                 default=False,
+    #                 help='Highlight the molecule (draw atoms in a different color).')
     parser.add_argument('-cc', '--colorcode',
                     type=str,
                     choices=['forces', 'magmoms', 'coordnum'],

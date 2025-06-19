@@ -1,5 +1,5 @@
 '''
-General settings and rendering parameters class for the xplot package.
+General settings and rendering parameters class for the atomsplot package.
 '''
 
 import os

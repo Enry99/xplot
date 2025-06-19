@@ -22,9 +22,9 @@ import numpy as np
 from ase.io import read
 from ase.units import Bohr
 
-from xplot import ase_custom # monkey patch. pylint: disable=unused-import
-from xplot.render import render_image
-from xplot.settings import CustomSettings
+from atomsplot import ase_custom # monkey patch. pylint: disable=unused-import
+from atomsplot.render import render_image
+from atomsplot.settings import CustomSettings
 
 logger = logging.getLogger(__name__)
 

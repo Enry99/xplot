@@ -2,11 +2,11 @@
 Xplot is a small Python command-line program to render images of atomic structures using [ASE](https://wiki.fysik.dtu.dk/ase/index.html) and [POV-Ray](http://www.povray.org/).
 
 ## Installation
-First, you need to download the program by cloning this repository into your local machine:  
+First, you need to download the program by cloning this repository into your local machine:
 ```sh
-git clone https://github.com/Enry99/xplot.git
+git clone https://github.com/Enry99/atomsplot.git
 ```
-Once the download is completed, go inside the downloaded folder and run: 
+Once the download is completed, go inside the downloaded folder and run:
 
 ```sh
 bash install.sh
@@ -28,27 +28,27 @@ sudo apt install povray ffmpeg
 
 Basic usage for generating an image of the (final) configuration:
 ```sh
-xplot filename.xyz
+atomsplot filename.xyz
 ```
 
 To generate the frames for a trajectory you can use:
 ```sh
-xplot filename.xyz -i :
+atomsplot filename.xyz -i :
 ```
 
 To plot only a frame every 10 frames you can use:
 ```sh
-xplot filename.xyz -i ::10
+atomsplot filename.xyz -i ::10
 ```
 
 To generate also a movie with the frames you can use:
 ```sh
-xplot filename.xyz -i ::10 -m
+atomsplot filename.xyz -i ::10 -m
 ```
 
-A list with all the options can be found with 
+A list with all the options can be found with
 ```sh
-xplot -h
+atomsplot -h
 ```
 
 **Important note**: the image generation with *povray* only works in Linux. For Windows, you can still use this program without povray by adding the option `-np`. However, the image quality is worse and bonds are not drawn.

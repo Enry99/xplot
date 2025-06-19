@@ -1,1 +1,1 @@
-xplot POSCAR -dc
+atomsplot POSCAR -dc

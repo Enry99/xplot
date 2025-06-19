@@ -1,1 +1,1 @@
-xplot adsorbed.xsf -dc
+atomsplot adsorbed.xsf -dc -hc

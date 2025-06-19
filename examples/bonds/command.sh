@@ -1,1 +1,1 @@
-xplot DMAEMA.xyz -r 0z,-30x --bonds multiple
+atomsplot DMAEMA.xyz -r 0z,-30x --bonds multiple

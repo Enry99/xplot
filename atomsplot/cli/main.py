@@ -4,14 +4,14 @@
 import sys
 import logging
 
-from xplot import __version__
-from xplot.cli.parser import cli_parse
+from atomsplot import __version__
+from atomsplot.cli.parser import cli_parse
 
 logger = logging.getLogger(__name__)
 
 def main():
     '''
-    Main entry point for the xplot command line interface.
+    Main entry point for the atomsplot command line interface.
     '''
 
     # set up logging to print only to console
@@ -28,7 +28,7 @@ def main():
     args = cli_parse()
 
     # import here to not impact time to display cli help
-    from xplot.functions import setup_rendering #pylint: disable=import-outside-toplevel
+    from atomsplot.functions import setup_rendering #pylint: disable=import-outside-toplevel
     setup_rendering(filename=args.filename,
                     index=args.index,
                     outfile=args.output,
@@ -39,6 +39,7 @@ def main():
                     # repeat_slab=args.repeat_slab,
                     # center_molecule=args.center_molecule,
                     wrap=args.wrap,
+                    hide_cell=args.hide_cell,
                     depth_cueing=args.depth_cueing,
                     range_cut=args.range_cut,
                     cut_vacuum=args.cut_vacuum,
@@ -47,7 +48,7 @@ def main():
                     arrows=args.arrows,
                     arrows_scale=args.arrows_scale,
                     bonds=args.bonds,
-                    highlight_mol=args.highlight_mol,
+                    #highlight_mol=args.highlight_mol,
                     chg_format=args.chg_format,
                     chg_iso_threshold=args.chg_iso_threshold,
                     chg_upscale=args.chg_upscale,

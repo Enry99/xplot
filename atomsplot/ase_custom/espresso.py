@@ -27,7 +27,7 @@ from ase.utils import reader, writer
 from ase import Atom
 from ase.constraints import FixAtoms, FixCartesian
 
-from xplot.ase_custom.atoms import AtomsCustom, extract_number_from_string
+from atomsplot.ase_custom.atoms import AtomsCustom, extract_number_from_string
 
 
 @reader

@@ -6,7 +6,7 @@
 #taken from xsorb (branch rewrite_with_db)
 
 #CHANGELOG:
-# - 17 Oct 2024: taken from xplot, commit c0d4764.
+# - 17 Oct 2024: taken from atomsplot, commit c0d4764.
 # - 23 Oct 2024: added transparency, added ground fog
 #                and automatic identification of z_max_slab for fog.
 
@@ -35,13 +35,13 @@ from ase.build.tools import sort
 from sympy import Q
 
 
-from xplot.settings import CustomSettings
-from xplot.ase_custom import AtomsCustom # monkey patch for ase.utils.PlottingVariables arrows_type. pylint: disable=unused-import
-import xplot.ase_custom.povray # monkey patch for povray. pylint: disable=unused-import
+from atomsplot.settings import CustomSettings
+from atomsplot.ase_custom import AtomsCustom # monkey patch for ase.utils.PlottingVariables arrows_type. pylint: disable=unused-import
+import atomsplot.ase_custom.povray # monkey patch for povray. pylint: disable=unused-import
 
 if TYPE_CHECKING:
     from ase import Atoms
-    from xplot.ase_custom import AtomsCustom
+    from atomsplot.ase_custom import AtomsCustom
 
 
 
@@ -188,7 +188,6 @@ def _calculate_ground_fog_height(atoms: Atoms, mol_indices: list[float] | None =
         else:
             zmax_slab = min(zmax_mol, zmax_slab) #avoid negative heights
             constant_fog_height = - (zmax_mol - zmax_slab)
-        print(zmax_mol, zmax_slab, constant_fog_height)
 
     return constant_fog_height
 
@@ -222,28 +221,29 @@ def _calculate_bondorder_pairs(atoms: Atoms, mol_indices : list[int] | None = No
     return high_bondorder_pairs
 
 
-def render_image(atoms: 'Atoms | AtomsCustom',      ## used
-                outfile: str,                       ## used
+def render_image(atoms: 'Atoms | AtomsCustom',
+                outfile: str,
                 custom_settings: CustomSettings,
                 rotations: str = '',
-                supercell: Optional[list] = None,   ## used
-                wrap: bool = False,                 ## used
-                range_cut: Optional[tuple] = None,  ## used
-                cut_vacuum: bool = False,           ## used
+                supercell: Optional[list] = None,
+                wrap: bool = False,
+                range_cut: Optional[tuple] = None,
+                cut_vacuum: bool = False,
                 bonds: str = 'single',
+                hide_cell: bool = False,
                 depth_cueing: Optional[float] = None,
                 highlight_mol: bool = False,
-                colorcode: Optional[str] = None,    ## used
-                ccrange: Optional[list] = None,     ## used
+                colorcode: Optional[str] = None,
+                ccrange: Optional[list] = None,
                 arrows: Optional[str] = None,
-                arrows_scale: float = 1.0,          ## used
+                arrows_scale: float = 1.0,
                 chg_grid: Optional[np.ndarray] = None,
                 chg_iso_threshold: Optional[float] = None,
                 width_res: Optional[int] = 700,
                 povray: bool = True,
-                transl_vector: Optional[list[float]] = None, ## used
+                transl_vector: Optional[list[float]] = None,
                 mol_indices: Optional[list] = None,
-                fixed_bounds : bool = False):         ## used
+                fixed_bounds : bool = False):
 
     """
     Render an image of an Atoms object using POVray or ASE renderer.
@@ -269,6 +269,8 @@ def render_image(atoms: 'Atoms | AtomsCustom',      ## used
         If True, cut the vacuum in the z direction. Default is False.
     bonds : str, optional
         Type of bonds to draw. Options are 'none', 'single' (default), 'multiple'.
+    hide_cell : bool, optional
+        If True, hide the cell box. Default is False.
     depth_cueing : float | None, optional
         Intensity of depth cueing effect. If None, no depth cueing is applied. Default is None.
     highlihgt_mol : bool, optional
@@ -421,17 +423,19 @@ def render_image(atoms: 'Atoms | AtomsCustom',      ## used
         camera_dist = max(2, dz)
 
 
-        povray_settings=dict(canvas_width=width_res,
-                                celllinewidth=custom_settings.cell_line_width,
-                                transparent=False,
-                                camera_type='orthographic',
-                                camera_dist=camera_dist,
-                                textures=textures,
-                                transmittances=transmittances,
-                                bondlinewidth=custom_settings.bond_line_width,
-                                arrows = _get_arrows(atoms, arrows, pvars.rotation, arrows_scale)
-                                if arrows is not None else None,
-                            )
+        povray_settings=dict(
+            canvas_width=width_res,
+            celllinewidth=custom_settings.cell_line_width if not hide_cell else 0,
+            transparent=False,
+            camera_type='orthographic',
+            camera_dist=camera_dist,
+            textures=textures,
+            transmittances=transmittances,
+            bondlinewidth=custom_settings.bond_line_width,
+            arrows = _get_arrows(atoms, arrows, pvars.rotation, arrows_scale)
+            if arrows is not None else None
+        )
+
         if bonds == 'none' or custom_settings.nontransparent_atoms:
             # with transparency, bonds are very ugly
             bondatoms = None

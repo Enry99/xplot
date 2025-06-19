@@ -4,10 +4,10 @@ Custom I/O functions for ASE Atoms objects
 
 from ase.io import read, write
 
-import xplot.ase_custom.espresso
-import xplot.ase_custom.extxyz
-import xplot.ase_custom.vasp
-from xplot.ase_custom import AtomsCustom
+import atomsplot.ase_custom.espresso
+import atomsplot.ase_custom.extxyz
+import atomsplot.ase_custom.vasp
+from atomsplot.ase_custom import AtomsCustom
 
 
 def ase_custom_read(filename, **kwargs):
