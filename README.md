@@ -73,7 +73,7 @@ Examples of usage can be found in the `examples` folder. Some functionalities ar
 
 Double(triple) bonds:
 
-<img src="examples/bonds/DMAEMA.png" alt="Double bond" width="400">
+<img src="examples/bonds/DMAEMA.png" alt="Double bond" width="300">
 
 ---
 
@@ -81,23 +81,23 @@ Depth cueing:
 
 - top view of 2x1 dimer-reconstructed C(100) slab
 
-<img src="examples/depth_cueing_slab/POSCAR.png" alt="Depth cueing" width="400">
+<img src="examples/depth_cueing_slab/POSCAR.png" alt="Depth cueing" width="300">
 
 - molecules on Si-doped DLC surface
 
-<img src="examples/depth_cueing_mols_auto/adsorbed.png" alt="Depth cueing molecules" width="400">
+<img src="examples/depth_cueing_mols_auto/adsorbed.png" alt="Depth cueing molecules" width="300">
 
 ---
 
 Color coding with coordination number (here lateral view of amophous carbon slab. yellow = sp, green = sp2, violet = sp3):
 
-<img src="examples/colorcode_ccnum/surf_lateral.png" alt="Coordination number" width="400">
+<img src="examples/colorcode_ccnum/surf_lateral.png" alt="Coordination number" width="300">
 
 ---
 
 Color coding + depth cueing (here top view of the same slab):
 
-<img src="examples/colorcode_ccnum/surf_top.png" alt="Coordination number + depth cueing" width="400">
+<img src="examples/colorcode_ccnum/surf_top.png" alt="Coordination number + depth cueing" width="300">
 
 ---
 
@@ -105,14 +105,14 @@ Magnetic moments:
 
 - color coding of magnetic moments in a high-entropy alloy (blue to red gradient: down to up spin):
 
-<img src="examples/colorcode_magmom/magmoms_cc.png" alt="Magnetic moments" width="400">
+<img src="examples/colorcode_magmom/magmoms_cc.png" alt="Magnetic moments" width="300">
 
 - arrows for magnetic moments in the same structure (arrow length proportional to the magnetic moment, atoms are colored with VESTA color scheme):
 
-<img src="examples/colorcode_magmom/magmoms_arrows.png" alt="Magnetic moments arrows" width="400">
+<img src="examples/colorcode_magmom/magmoms_arrows.png" alt="Magnetic moments arrows" width="300">
 
 ---
 
 Charge density isosurfaces:
 
-<img src="examples/isosurface/chargediff.png" alt="Charge density isosurface" width="400">
+<img src="examples/isosurface/chargediff.png" alt="Charge density isosurface" width="300">
