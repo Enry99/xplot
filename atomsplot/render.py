@@ -32,8 +32,6 @@ from ase.io.utils import PlottingVariables
 from ase.io.pov import POVRAY, POVRAYIsosurface
 from ase.geometry.geometry import get_layers
 from ase.build.tools import sort
-from sympy import Q
-
 
 from atomsplot.settings import CustomSettings
 from atomsplot.ase_custom import AtomsCustom # monkey patch for ase.utils.PlottingVariables arrows_type. pylint: disable=unused-import
