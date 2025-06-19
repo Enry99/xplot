@@ -1,0 +1,1 @@
+xplot POSCAR -dc

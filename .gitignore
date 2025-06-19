@@ -1,3 +1,4 @@
 traj.xyz
 *__pycache__*
 *.mypy_cache
+*.cube

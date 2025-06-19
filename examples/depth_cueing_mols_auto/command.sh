@@ -1,0 +1,1 @@
+xplot adsorbed.xsf -dc
