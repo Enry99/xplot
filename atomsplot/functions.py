@@ -12,7 +12,6 @@ Function to setup and start the rendering, and generate movies
 from __future__ import annotations
 
 import os
-import re
 import shutil
 import subprocess
 import logging

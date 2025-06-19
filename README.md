@@ -1,32 +1,38 @@
-# Xplot
-Xplot is a small Python command-line program to render images of atomic structures using [ASE](https://wiki.fysik.dtu.dk/ase/index.html) and [POV-Ray](http://www.povray.org/).
+# Atomsplot
+
+Atomsplot is a small Python command-line program to render images of atomic structures using [ASE](https://wiki.fysik.dtu.dk/ase/index.html) and [POV-Ray](http://www.povray.org/).
 
 ## Installation
-First, you need to download the program by cloning this repository into your local machine:
+First, install the program with
 ```sh
-git clone https://github.com/Enry99/atomsplot.git
-```
-Once the download is completed, go inside the downloaded folder and run:
-
-```sh
-bash install.sh
+pip install atomsplot
 ```
 
-to add the executable in the `PATH` variable. With this operation, the you will be able to launch the program from any folder. The next step is to install the required dependencies stored in the 'requirements.txt' file. This can be performed with the command:
-
+or directly from source with
 ```sh
-pip install -r requirements.txt
+git clone https://github.com/Enry99/atomsplot
+cd atomsplot
+pip install .
 ```
 
-In order to generate the images and the movies, you need the *povray* and [*ffmpeg*](https://ffmpeg.org/) packages, which can be installed on Ubuntu with:
+## Dependencies
+
+- [povray](https://www.povray.org/) to generate high-quality images
+- [ffmpeg](https://ffmpeg.org/) to generate movies of trajectories
+
+These can be installed on Linux systems with:
 
 ```sh
 sudo apt install povray ffmpeg
 ```
 
+While povray is not strictly necessary (you can use the option -nopov in the CLI) and the images can be generated also with ASE internal renderer based on matplotlib, the image quality and most of the functionalities of this code are strongly limited, and can be useful mostly as a fast way to preview the structures.
+
+Also ffmpeg is not mandatory: if it's not available, atomsplot will try to fallback on imagemagick convert to generate a gif of the animation instead of a video
+
 ## Usage
 
-Basic usage for generating an image of the (final) configuration:
+Basic usage for generating an image:
 ```sh
 atomsplot filename.xyz
 ```
@@ -34,11 +40,6 @@ atomsplot filename.xyz
 To generate the frames for a trajectory you can use:
 ```sh
 atomsplot filename.xyz -i :
-```
-
-To plot only a frame every 10 frames you can use:
-```sh
-atomsplot filename.xyz -i ::10
 ```
 
 To generate also a movie with the frames you can use:
@@ -51,4 +52,67 @@ A list with all the options can be found with
 atomsplot -h
 ```
 
-**Important note**: the image generation with *povray* only works in Linux. For Windows, you can still use this program without povray by adding the option `-np`. However, the image quality is worse and bonds are not drawn.
+### image_settings.json file
+Additional parameters, such as color scheme and atomic radius can be specified in a image_settings.json file, which must be located in the working directory (see the example in the `examples` folder). This file is read by atomsplot and used to set the rendering parameters for the images.
+
+The list of all the options is:
+- `color_scheme`: can be 'vesta', 'jmol', 'cpk' (default: 'jmol')
+- `atomic_colors`: a dictionary with specific overrides to the color scheme, in RGB format
+- `molecule_colors`: a dictionary with specific colors for the atoms that are specified in `mol_indices`. These will override the colors in `atomic_colors` and the color scheme.
+- `atomic_radius`: the radius of the atoms in the image (default: 0.7)
+- `bond_radius`: the radius of the bonds in the image (default: 0.8)
+- `bond_line_width`: the width of the bond lines in the image (default: 0.15)
+- `cell_line_width`: the width of the cell lines in the image (default: 0.05)
+- `mol_indices`: a list of indices of the atoms that should be considered part of the molecule (for coloring and other features).
+- `nontransparent_atoms`: if specified, only the atoms with indices in this list will be rendered as non-transparent, while the others will be rendered as transparent (default: all atoms are non-transparent)
+
+
+## Examples
+Examples of usage can be found in the `examples` folder. Some functionalities are shown here:
+---
+
+Double(triple) bonds:
+
+<img src="examples/bonds/DMAEMA.png" alt="Double bond" width="400">
+
+---
+
+Depth cueing:
+
+- top view of 2x1 dimer-reconstructed C(100) slab
+
+<img src="examples/depth_cueing_slab/POSCAR.png" alt="Depth cueing" width="400">
+
+- molecules on Si-doped DLC surface
+
+<img src="examples/depth_cueing_mols_auto/adsorbed.png" alt="Depth cueing molecules" width="400">
+
+---
+
+Color coding with coordination number (here lateral view of amophous carbon slab. yellow = sp, green = sp2, violet = sp3):
+
+<img src="examples/colorcode_ccnum/surf_lateral.png" alt="Coordination number" width="400">
+
+---
+
+Color coding + depth cueing (here top view of the same slab):
+
+<img src="examples/colorcode_ccnum/surf_top.png" alt="Coordination number + depth cueing" width="400">
+
+---
+
+Magnetic moments:
+
+- color coding of magnetic moments in a high-entropy alloy (blue to red gradient: down to up spin):
+
+<img src="examples/colorcode_magmom/magmoms_cc.png" alt="Magnetic moments" width="400">
+
+- arrows for magnetic moments in the same structure (arrow length proportional to the magnetic moment, atoms are colored with VESTA color scheme):
+
+<img src="examples/colorcode_magmom/magmoms_arrows.png" alt="Magnetic moments arrows" width="400">
+
+---
+
+Charge density isosurfaces:
+
+<img src="examples/isosurface/chargediff.png" alt="Charge density isosurface" width="400">

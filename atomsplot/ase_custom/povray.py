@@ -12,7 +12,6 @@ import os
 import sys
 
 import numpy as np
-import ase.io.utils
 import ase.io.pov
 from ase import Atoms
 from ase.constraints import FixAtoms
