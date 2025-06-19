@@ -1,0 +1,45 @@
+[build-system]
+requires = ['setuptools >= 61.0.0']
+build-backend = 'setuptools.build_meta'
+
+[project]
+name = 'atomsplot'
+description='A command line tool for plotting atomic structures using ASE and povray, including support for depth cueing, color coding, and charge density isosurfaces.'
+dynamic = ['version']
+authors = [{ name = 'Enrico Pedretti', email = 'enrico.pedretti2@unibo.it' }]
+requires-python = '>=3.9'
+dependencies = [
+'ase==3.25.0',
+'numpy>=1.19.5',
+'matplotlib>=3.9.0',
+'pymatgen',
+'scikit-image>=0.19.0',
+'tqdm'
+]
+readme = 'README.md'
+license-files = ['LICENSE']
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Operating System :: OS Independent',
+    'Intended Audience :: Science/Research',
+    'Topic :: Scientific/Engineering :: Physics',
+]
+
+[project.urls]
+Repository = 'https://github.com/Enry99/atomsplot'
+Issues = 'https://github.com/Enry99/atomsplot/issues'
+
+
+[project.scripts]
+atomsplot = 'atomsplot.cli.main:main'
+
+
+[tool.setuptools.dynamic]
+version = {attr = 'atomsplot.__version__'}
+
