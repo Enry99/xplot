@@ -17,6 +17,7 @@ dependencies = [
 'tqdm'
 ]
 readme = 'README.md'
+license = 'GPL-3.0-only'
 license-files = ['LICENSE']
 
 classifiers = [
