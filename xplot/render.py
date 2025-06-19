@@ -17,6 +17,7 @@ Module to render an image of an Atoms object using POVray or ASE renderer.
 """
 
 from __future__ import annotations
+import logging
 from typing import Optional, TYPE_CHECKING
 import shutil
 import os
@@ -31,9 +32,11 @@ from ase.io.utils import PlottingVariables
 from ase.io.pov import POVRAY, POVRAYIsosurface
 from ase.geometry.geometry import get_layers
 from ase.build.tools import sort
+from sympy import Q
 
 
 from xplot.settings import CustomSettings
+from xplot.ase_custom import AtomsCustom # monkey patch for ase.utils.PlottingVariables arrows_type. pylint: disable=unused-import
 import xplot.ase_custom.povray # monkey patch for povray. pylint: disable=unused-import
 
 if TYPE_CHECKING:
@@ -102,6 +105,24 @@ def _get_colorcoded_colors(atoms: Atoms, quantity: str, ccrange : list | None = 
     return colors
 
 
+def _get_arrows(atoms: Atoms, quantity: str, rotation, scaling : float) -> np.ndarray:
+
+    if quantity == 'forces':
+        arrows = atoms.get_forces()
+    elif quantity == 'magmoms':
+        arrows = np.array([[0,0, magmom] for magmom in atoms.get_magnetic_moments()])
+    else:
+        raise ValueError(f'Unknown arrows type: {quantity}')
+
+    #normalize arrows
+    maxlength = np.linalg.norm(arrows, axis=1).max()
+    arrows = arrows / maxlength
+
+    arrows = np.dot(arrows, rotation) * scaling
+
+    return arrows
+
+
 def _calculate_ground_fog_height(atoms: Atoms, mol_indices: list[float] | None = None) -> float:
     """
     Calculate the height of ground fog for visualization purposes.
@@ -151,19 +172,28 @@ def _calculate_ground_fog_height(atoms: Atoms, mol_indices: list[float] | None =
         for i, idx in enumerate(layer_indicization):
             bins_heights[idx] += 4/3*np.pi*(covalent_radii[sorted_atoms[i].number])**3
 
+        # XXX: this method does not work for the example depth_cueing_mols_auto
         threshold = 0.8 * max(bins_heights)
+        zmax_slab = 0
         for i in range(len(distances)-1,-1,-1):
             if bins_heights[i] > threshold:
                 zmax_slab = distances[i] +1
                 break
 
-        zmax_slab = min(zmax_mol, zmax_slab)
-        constant_fog_height = - (zmax_mol - zmax_slab)
+        if zmax_slab < zmax_mol - 5:
+            logging.warning(
+                "Not possible to determine slab height, resorting to default fog "
+            )
+            constant_fog_height = -2
+        else:
+            zmax_slab = min(zmax_mol, zmax_slab) #avoid negative heights
+            constant_fog_height = - (zmax_mol - zmax_slab)
+        print(zmax_mol, zmax_slab, constant_fog_height)
 
     return constant_fog_height
 
 
-def _calculate_bondorder_pairs(atoms: Atoms, mol_indices : list[int]) -> dict:
+def _calculate_bondorder_pairs(atoms: Atoms, mol_indices : list[int] | None = None) -> dict:
     '''
     Calculate pairs of atoms with high bond order using Pymatgen's CovalentBondNN.
     '''
@@ -174,17 +204,20 @@ def _calculate_bondorder_pairs(atoms: Atoms, mol_indices : list[int]) -> dict:
     covalent_bond_nn = CovalentBondNN()
     pymat_mol = AseAtomsAdaptor.get_molecule(atoms)
 
+    if mol_indices is None:
+        mol_indices = list(range(len(pymat_mol)))
+
     high_bondorder_pairs = {}
     for atom_id in mol_indices:
         neighbors = covalent_bond_nn.get_nn_info(pymat_mol, atom_id)
 
         for neighbor in neighbors:
-            bondorder = int(neighbor['weight'])
+            bondorder = round(neighbor['weight'])
             # avoid duplicate pairs
             if  bondorder >= 2 and (neighbor['site_index'], atom_id) \
                 not in high_bondorder_pairs:
                 high_bondorder_pairs[(atom_id, neighbor['site_index'])] = \
-                    ((0, 0, 0), bondorder, (0.17, 0.17, 0))
+                    ((0, 0, 0), bondorder, (0.2, 0.2, 0))
 
     return high_bondorder_pairs
 
@@ -203,12 +236,14 @@ def render_image(atoms: 'Atoms | AtomsCustom',      ## used
                 colorcode: Optional[str] = None,    ## used
                 ccrange: Optional[list] = None,     ## used
                 arrows: Optional[str] = None,
+                arrows_scale: float = 1.0,          ## used
                 chg_grid: Optional[np.ndarray] = None,
                 chg_iso_threshold: Optional[float] = None,
                 width_res: Optional[int] = 700,
                 povray: bool = True,
                 transl_vector: Optional[list[float]] = None, ## used
-                mol_indices: Optional[list] = None):         ## used
+                mol_indices: Optional[list] = None,
+                fixed_bounds : bool = False):         ## used
 
     """
     Render an image of an Atoms object using POVray or ASE renderer.
@@ -247,6 +282,8 @@ def render_image(atoms: 'Atoms | AtomsCustom',      ## used
     arrows : str | None, optional
         If not None, draw arrows for the specified quantity.
         Options are 'forces', 'magmoms' and 'coordnum'. Default is None.
+    arrows_scale : float, optional
+        Scale factor for the arrows. Default is 1.0 (no scaling).
     chg_grid : np.ndarray | None, optional
         Charge density grid to use for isosurface rendering.
         If None, no isosurface is rendered. Default is None.
@@ -264,7 +301,9 @@ def render_image(atoms: 'Atoms | AtomsCustom',      ## used
         List with the indices of the atoms to consider as the molecule. Default is None.
     """
 
+    calc = atoms.calc
     atoms = atoms.copy() #do not modify the original object
+    atoms.calc = calc #keep the calculator, if present
 
     label = Path(outfile).stem
 
@@ -273,20 +312,24 @@ def render_image(atoms: 'Atoms | AtomsCustom',      ## used
         wrap = True
 
     if wrap:
-        atoms.wrap()
+        atoms.wrap(pretty_translation=True) #wrap the atoms to the unit cell
 
     if mol_indices is None and custom_settings.mol_indices is not None:
         mol_indices = custom_settings.mol_indices
 
     if supercell is not None:
         if mol_indices is not None:
-            slab_indices = [i for i in range(len(atoms)) if i not in mol_indices]
-            slab = atoms[slab_indices]
-            slab *= supercell
-            atoms = slab + atoms[mol_indices]
-            mol_indices = [i + len(slab) for i in mol_indices]
-        else:
-            atoms *= supercell
+            n_repeats = np.array(supercell) - 1
+            # get new mol_indces after supercell expansion
+            mol_indices = [i + j * len(atoms) for i in mol_indices for j in range(np.prod(supercell))]
+
+        #     slab_indices = [i for i in range(len(atoms)) if i not in mol_indices]
+        #     slab = atoms[slab_indices]
+        #     slab *= supercell
+        #     atoms = slab + atoms[mol_indices]
+        #     mol_indices = [i + len(slab) for i in range(len(mol_indices))]
+        # else:
+        atoms *= supercell
 
     if cut_vacuum:
         atoms.translate([0,0,atoms.positions[:,2].min()]) #shift to z=0
@@ -345,8 +388,14 @@ def render_image(atoms: 'Atoms | AtomsCustom',      ## used
         # I used 3000 in Xsorb paper. > 1500 is still very good.
 
     if povray: #use POVray renderer (high quality, CPU intensive)
-        config_copy = atoms.copy()
-        #config_copy.set_pbc([0,0,0]) #to avoid drawing bonds with invisible replicas
+        pvars = PlottingVariables(atoms,
+            scale=1,
+            radii=custom_settings.atomic_radius,
+            rotation=rotations,
+            colors=colors,
+            auto_bbox_size=1.2 if fixed_bounds else 1.05, #auto_bbox_size is used to set the size of the bounding box
+            show_unit_cell=3 if fixed_bounds else 2,  #IMPORTANT: keep the blank space around the cell fixed in trajs
+        )
 
         if mol_indices is not None and highlight_mol:
             textures = ['ase3' if i in mol_indices else 'pale' for i in range(len(atoms))]
@@ -371,6 +420,7 @@ def render_image(atoms: 'Atoms | AtomsCustom',      ## used
             dz = 0
         camera_dist = max(2, dz)
 
+
         povray_settings=dict(canvas_width=width_res,
                                 celllinewidth=custom_settings.cell_line_width,
                                 transparent=False,
@@ -379,32 +429,29 @@ def render_image(atoms: 'Atoms | AtomsCustom',      ## used
                                 textures=textures,
                                 transmittances=transmittances,
                                 bondlinewidth=custom_settings.bond_line_width,
+                                arrows = _get_arrows(atoms, arrows, pvars.rotation, arrows_scale)
+                                if arrows is not None else None,
                             )
-        if bonds == 'none':
+        if bonds == 'none' or custom_settings.nontransparent_atoms:
+            # with transparency, bonds are very ugly
             bondatoms = None
         else:
-            bondatoms = get_bondpairs(config_copy, radius=custom_settings.bond_radius)
+            bondatoms = get_bondpairs(atoms, radius=custom_settings.bond_radius)
             if bonds == 'multiple':
-                high_bondorder_pairs = _calculate_bondorder_pairs(config_copy)
+                high_bondorder_pairs = _calculate_bondorder_pairs(atoms)
                 bondatoms = set_high_bondorder_pairs(bondatoms, high_bondorder_pairs)
-        povray_settings['bondatoms'] = bondatoms
+            povray_settings['bondatoms'] = bondatoms
 
 
         if depth_cueing is not None:
-            constant_fog_height = _calculate_ground_fog_height(atoms, mol_indices)
+            constant_fog_height = _calculate_ground_fog_height(atoms) #, mol_indices)
 
             povray_settings['depth_cueing'] = True
             povray_settings['cue_density'] = depth_cueing
             povray_settings['constant_fog_height'] = constant_fog_height
 
 
-        pvars = PlottingVariables(atoms,
-            radii=custom_settings.atomic_radius,
-            rotation=rotations,
-            colors=colors,
-            arrows_type = arrows, # monkey patchd ase.utils.PlottingVariables __init__ in ase_custom
-            show_unit_cell=3,  #IMPORTANT: keep the blank space around the cell fixed in trajs
-        )
+
         pov_obj = POVRAY.from_PlottingVariables(pvars, **povray_settings)
 
 
@@ -425,9 +472,10 @@ def render_image(atoms: 'Atoms | AtomsCustom',      ## used
                 cut_off=-chg_iso_threshold,
                 color=(0.00, 0.80, 0.80, 0.3))
 
+            pov_obj.isosurfaces = [iso_positive, iso_negative]
 
         #Do the actual rendering
-        pov_obj.write().render()
+        pov_obj.write(f'{label}.pov').render()
 
         os.remove(f'{label}.pov')
         os.remove(f'{label}.ini')

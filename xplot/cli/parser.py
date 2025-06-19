@@ -34,7 +34,7 @@ def cli_parse():
 
     parser = argparse.ArgumentParser(
         prog='xplot',
-        epilog=xplot.__doc__,
+        description=xplot.__doc__,
         formatter_class=CustomFormatter,
         allow_abbrev=False)
 
@@ -65,6 +65,14 @@ def cli_parse():
                     type=_positive_int,
                     metavar=('nx', 'ny', 'nz'),
                     help="Replicate the cell nx ny nz times along the three cell vectors.")
+    # parser.add_argument('rs', '--repeat-slab',
+    #                     action='store_true',
+    #                     default=False,
+    #                     help='Replicate only the slab, not the molecule.')
+    # parser.add_argument('-cmol', '--center-molecule',
+    #                     action='store_true',
+    #                     default=False,
+    #                     help='Center the molecule in the middle of the slab.')
     parser.add_argument('-wr', '--wrap',
                         action='store_true',
                         default=False,
@@ -108,15 +116,20 @@ def cli_parse():
                     choices=['forces', 'magmoms'],
                     help='''Draw arrows representing the vectors,
                     with lenghth proportional to the magnitude.''')
+    parser.add_argument('-as', '--arrows-scale',
+                    type=_positive_float,
+                    default=1.0,
+                    help='''Scale factor for the arrows.
+                    Default = 1.0 (no scaling).''')
     parser.add_argument('-chgfm', '--chg-format',
                     type=str,
                     choices=['cube', 'vasp'],
-                    default='cube',
                     help='''Format of the charge density file.
                     Options: 'cube' or 'vasp' (CHGCAR/CHG).''')
-    parser.add_argument('-chg', '--chg-file',
-                    type=str,
-                    help="Path to the charge density file.")
+    parser.add_argument('-chgu', '--chg-upscale',
+                    type=_positive_int,
+                    help='''Upscale the charge density grid by this factor.
+                    (1 = no upscaling).''')
     parser.add_argument('-iso', '--chg-iso-threshold',
                     type=_positive_float,
                     help='''Iso-surface threshold for the charge density.
@@ -127,9 +140,13 @@ def cli_parse():
                     type=_positive_int,
                     default=700,
                     help='Horizontal resolution in pixels.')
-    parser.add_argument('-pov','--povray',
+    parser.add_argument('-fb', '--fixed-bounds',
                     action='store_true',
-                    default=True,
+                    default=False,
+                    help='Fix the canvas white space to the unit cell. Always true for trajs.')
+    parser.add_argument('-nopov','--no-povray',
+                    action='store_true',
+                    default=False,
                     help='Use povray for rendering (much better quality).')
 
     # movie options

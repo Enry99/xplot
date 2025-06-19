@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import os
 import sys
 import logging
 
@@ -37,6 +36,8 @@ def main():
                     framerate=args.framerate,
                     rotations=args.rotations,
                     supercell=args.supercell,
+                    # repeat_slab=args.repeat_slab,
+                    # center_molecule=args.center_molecule,
                     wrap=args.wrap,
                     depth_cueing=args.depth_cueing,
                     range_cut=args.range_cut,
@@ -44,11 +45,13 @@ def main():
                     colorcode=args.colorcode,
                     ccrange=args.ccrange,
                     arrows=args.arrows,
+                    arrows_scale=args.arrows_scale,
                     bonds=args.bonds,
                     highlight_mol=args.highlight_mol,
                     chg_format=args.chg_format,
-                    chg_file=args.chg_file,
                     chg_iso_threshold=args.chg_iso_threshold,
-                    povray=args.povray,
+                    chg_upscale=args.chg_upscale,
+                    povray=not args.no_povray,
                     width_res=args.width_res,
+                    fixed_bounds=args.fixed_bounds
                 )

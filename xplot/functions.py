@@ -12,6 +12,7 @@ Function to setup and start the rendering, and generate movies
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import logging
@@ -28,9 +29,18 @@ from xplot.settings import CustomSettings
 logger = logging.getLogger(__name__)
 
 
-def _read_density_grid(filename, fmt='cube', upscale=1):
+def _deduce_chg_format(filename: str) -> str | None:
+
+    if filename.endswith('.cube'):
+        return 'cube'
+    elif filename.startswith('CHG'):
+        return 'vasp'
+    else:
+        return None
+
+def _read_charge_file(filename, fmt='cube', upscale=None):
     """
-    Get charge density grid from a file.
+    Read charge density file (cube of VASP CHGCAR/CHG format).
 
     Parameters
     ----------
@@ -43,28 +53,34 @@ def _read_density_grid(filename, fmt='cube', upscale=1):
 
     Returns
     -------
+    atoms : ase.Atoms
+        Atoms object containing the atomic structure.
     density_grid : np.ndarray
-        The charge density grid.
+        3D numpy array representing the charge density grid.
     """
 
     if fmt == 'cube':
         data_dict = read(filename, read_data=True, full_output=True)
+        atoms = data_dict["atoms"]
         density_grid = data_dict["data"]
 
     elif fmt == 'vasp':
         from ase.calculators.vasp import VaspChargeDensity # pylint: disable=import-outside-toplevel
         vcd = VaspChargeDensity(filename)
 
-        # convert volume in Angstrom^3 to bohr^3
-        density_grid = np.array(vcd.chg) * (Bohr ** 3)
+        atoms = vcd.atoms[0]
+        density_grid = np.array(vcd.chg[0]) * (Bohr ** 3) # convert volume in Angstrom^3 to bohr^3
+
+        logging.debug('Charge density grid shape: %s', density_grid.shape)
     else:
         raise ValueError("Unsupported format. Use 'cube' or 'vasp'.")
 
-    if upscale > 1:
+    if upscale is not None and upscale > 1:
+        logging.info('Upscaling charge density grid...')
         from scipy.ndimage import zoom #pylint: disable=import-outside-toplevel
-        density_grid = zoom(density_grid, 2, order=3)
+        density_grid = zoom(density_grid, upscale, order=3)
 
-    return density_grid
+    return atoms, density_grid
 
 
 def setup_rendering(filename : str,
@@ -93,24 +109,35 @@ def setup_rendering(filename : str,
         Additional keyword arguments for rendering
     """
 
-    if kwargs.get('chg_file') is not None:
-        # read the charge density grid from the file
-        chg_grid = _read_density_grid(filename=kwargs['chg_file'],
-                                      fmt=kwargs.get('chg_format', 'cube'),
-                                      upscale=kwargs.get('chg_upscale', 1))
-        kwargs['chg_grid'] = chg_grid
-
     custom_settings = CustomSettings()
 
+    chg_format =kwargs.pop('chg_format', None)
+    if chg_format is None:
+        chg_format = _deduce_chg_format(filename)
 
-    if index == '-1' and movie: #if we want to render a movie, we need to read the whole trajectory
-        index = ':'
 
-    atoms = read(filename, index=index)
+    if chg_format is not None:
+        # read charge density file
+        atoms, chg_grid = _read_charge_file(filename=filename,
+                                    fmt=chg_format,
+                                    upscale=kwargs.pop('chg_upscale', 1))
+        kwargs['chg_grid'] = chg_grid
+    else:
+        if index == '-1' and movie: #if we want to render a movie, we need the whole trajectory
+            index = ':'
+
+        atoms = read(filename, index=index)
+
+
     label = os.path.splitext(outfile if outfile is not None else os.path.basename(filename))[0]
     logger.info('File was read successfully.')
 
+    # remove None from kwargs
+    kwargs = {k: v for k, v in kwargs.items() if v is not None}
+
     if isinstance(atoms, list): # multiple frames
+
+        kwargs['fixed_bounds'] = True
 
         if os.path.exists('rendered_frames'):
             logger.info('Removing old rendered_frames folder...')
@@ -130,30 +157,29 @@ def setup_rendering(filename : str,
 
         if movie:
             logger.info('Generating movie...')
+            success = False
 
             # first, try to use ffmpeg:
-            ffmpeg_cmd = ['ffmpeg', '-y', '-framerate', str(framerate), '-i',
-                    f'rendered_frames/{label}_%05d.png', '-c:v', 'libx264',
-                    '-pix_fmt', 'yuv420p', f'{label}.mp4']
-            ret = subprocess.run(ffmpeg_cmd, check=True, capture_output=True)
-            success = ret.returncode == 0
-
-            if not success:
-                logger.error('ffmpeg failed, trying to use imagemagick...')
-                # if ffmpeg fails, try imagemagick:
-                ret = subprocess.run(['magick', 'convert', '-delay', str(1000 // framerate),
-                                     '-loop', '0', f'rendered_frames/{label}_*.png',
-                                     f'{label}.gif'], check=True, capture_output=True)
+            ffmpeg_cmd = f'ffmpeg -y -framerate {framerate} -i rendered_frames/{label}_%05d.png '\
+                f'-vcodec libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -pix_fmt yuv420p {label}.mp4'
+            try:
+                ret = subprocess.run([ffmpeg_cmd], check=True, capture_output=True, shell=True)
                 success = ret.returncode == 0
-
-                if not success:
-                    logger.error('Imagemagick also failed. '\
-                          'Please check your installation of ffmpeg or imagemagick.')
+            except (subprocess.CalledProcessError, FileNotFoundError) as ffmpeg_error:
+                logger.error('ffmpeg failed: %s. trying to use imagemagick...', ffmpeg_error)
+                # if ffmpeg fails, try imagemagick:
+                try:
+                    ret = subprocess.run(['convert', '-delay', str(1000 // framerate),
+                                        '-loop', '0', f'rendered_frames/{label}_*.png',
+                                        f'{label}.gif'], check=True, capture_output=True, shell=True)
+                    success = ret.returncode == 0
+                except (subprocess.CalledProcessError, FileNotFoundError) as imagemagick_error:
+                    logger.error('Imagemagick also failed')
 
             if success:
                 logger.info('Movie generated.')
             else:
-                logger.error('Error generating movie, '\
+                logger.error('Error generating movie, '
                         'however the frames are still present in the rendered_frames folder.')
 
     else: # single frame
