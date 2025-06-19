@@ -17,12 +17,54 @@ import subprocess
 import logging
 
 from tqdm import tqdm
+import numpy as np
 from ase.io import read
+from ase.units import Bohr
 
 from xplot import ase_custom # monkey patch. pylint: disable=unused-import
 from xplot.render import render_image
+from xplot.settings import CustomSettings
 
 logger = logging.getLogger(__name__)
+
+
+def _read_density_grid(filename, fmt='cube', upscale=1):
+    """
+    Get charge density grid from a file.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the file containing the isosurfaces.
+    fmt : str, optional
+        'cube' or VASP CHGCAR/CHG.
+    upscale : int, optional
+        Upscale factor for the density grid.
+
+    Returns
+    -------
+    density_grid : np.ndarray
+        The charge density grid.
+    """
+
+    if fmt == 'cube':
+        data_dict = read(filename, read_data=True, full_output=True)
+        density_grid = data_dict["data"]
+
+    elif fmt == 'vasp':
+        from ase.calculators.vasp import VaspChargeDensity # pylint: disable=import-outside-toplevel
+        vcd = VaspChargeDensity(filename)
+
+        # convert volume in Angstrom^3 to bohr^3
+        density_grid = np.array(vcd.chg) * (Bohr ** 3)
+    else:
+        raise ValueError("Unsupported format. Use 'cube' or 'vasp'.")
+
+    if upscale > 1:
+        from scipy.ndimage import zoom #pylint: disable=import-outside-toplevel
+        density_grid = zoom(density_grid, 2, order=3)
+
+    return density_grid
 
 
 def setup_rendering(filename : str,
@@ -30,7 +72,6 @@ def setup_rendering(filename : str,
                     index : str = '-1',
                     movie : bool = False,
                     framerate : int = 10,
-                    custom_settings : dict | None = None,
                     **kwargs):
     """
     Setup the rendering of an atomic structure or a trajectory.
@@ -48,14 +89,19 @@ def setup_rendering(filename : str,
         If True, generate a movie from the frames. Default is False.
     framerate : int, optional
         Framerate of the movie (frames per second). Default is 10.
-    custom_settings : dict, optional
-        Custom settings for rendering, such as colors and styles.
-        If not provided, default settings will be used.
     **kwargs : dict
-        Additional keyword arguments for rendering, such as
-        rotations, supercell, wrapping, depth cueing, range cut,
-        color coding, arrows, and PovRay settings.
+        Additional keyword arguments for rendering
     """
+
+    if kwargs.get('chg_file') is not None:
+        # read the charge density grid from the file
+        chg_grid = _read_density_grid(filename=kwargs['chg_file'],
+                                      fmt=kwargs.get('chg_format', 'cube'),
+                                      upscale=kwargs.get('chg_upscale', 1))
+        kwargs['chg_grid'] = chg_grid
+
+    custom_settings = CustomSettings()
+
 
     if index == '-1' and movie: #if we want to render a movie, we need to read the whole trajectory
         index = ':'

@@ -1,12 +1,15 @@
 '''
-Default settings for the xplot package.
+General settings and rendering parameters class for the xplot package.
 '''
 
 import os
 import json
 import logging
+from dataclasses import dataclass
+from typing import Optional
 
 import numpy as np
+from ase.data.colors import jmol_colors, cpk_colors
 
 logger = logging.getLogger(__name__)
 
@@ -16,29 +19,7 @@ BOND_RADIUS_DEFAULT = 0.8
 BOND_LINE_WIDTH_DEFAULT = 0.15
 CELL_LINE_WIDTH_DEFAULT = 0.1
 
-default_settings = {
-    "atomic_radius" : ATOMIC_RADIUS_DEFAULT,
-    "bond_radius" : BOND_RADIUS_DEFAULT,
-    "bond_line_width" : BOND_LINE_WIDTH_DEFAULT,
-    "cell_line_width"  : CELL_LINE_WIDTH_DEFAULT,
-}
-
-def read_custom_settings():
-    '''
-    Reads custom settings from a image_settings.json file in the working directory
-    If the file is not found, fallback to default settings.
-    '''
-
-    custom_settings_path = "image_settings.json"
-    if os.path.isfile(custom_settings_path):
-        with open(custom_settings_path, "r") as f:
-            custom_settings = json.load(f)
-            logger.info("Custom colors read from %s file.", custom_settings_path)
-    else:
-        custom_settings = default_settings
-
-    return custom_settings
-
+# VESTA colors for elements, normalized to [0, 1] range
 vesta_colors = np.array([
     [255, 0, 0],    # None - Placeholder for no element
     [112, 171, 250],  # Ac
@@ -151,3 +132,53 @@ vesta_colors = np.array([
     [143, 143, 129],  # Zn
     [0, 255, 0]       # Zr
 ]) / 255.0
+
+
+@dataclass
+class CustomSettings:
+    """Configuration settings for rendering atoms
+    """
+
+    atomic_colors : dict = {}
+    molecule_colors : dict = {}
+    color_scheme : np.ndarray = jmol_colors.copy()  # Use ASE's Jmol colors by default
+
+    mol_indices : Optional[list[int]] = None  # Indices of molecules to highlight
+    nontransparent_atoms : list[int] = []
+
+    atomic_radius : float = ATOMIC_RADIUS_DEFAULT
+    bond_radius : float = BOND_RADIUS_DEFAULT
+    bond_line_width : float = BOND_LINE_WIDTH_DEFAULT
+    cell_line_width : float = CELL_LINE_WIDTH_DEFAULT
+
+
+    def __post_init__(self):
+        """Post-initialization to set custom settings."""
+
+        custom_settings_path = "image_settings.json"
+        if os.path.isfile("image_settings.json"):
+            with open(custom_settings_path, "r") as f:
+                custom_settings : dict = json.load(f)
+                logger.info("Custom colors read from %s file.", custom_settings_path)
+
+            if custom_settings.pop("povray_old_style", None):
+                os.environ['POVRAY_OLD_STYLE'] = '1'
+
+            color_scheme = custom_settings.pop("color_scheme", "jmol").lower()
+            if color_scheme == "vesta":
+                self.color_scheme = vesta_colors.copy()
+                logger.info("Using VESTA colors for elements.")
+            elif color_scheme == "cpk":
+                self.color_scheme = cpk_colors.copy()
+                logger.info("Using CPK colors for elements.")
+            elif color_scheme == "jmol":
+                self.color_scheme = jmol_colors.copy()
+                logger.info("Using Jmol colors for elements.")
+            else:
+                logger.warning("Unknown color scheme '%s'. Using Jmol colors by default.", color_scheme)
+
+            for key, value in custom_settings.items():
+                if hasattr(self, key):
+                    setattr(self, key, value)
+                else:
+                    logger.warning("Custom setting '%s' not recognized.", key)

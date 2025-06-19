@@ -18,6 +18,11 @@ def _positive_float(value):
         raise argparse.ArgumentTypeError(f"{value} is not positive")
     return fvalue
 
+class CustomFormatter(argparse.RawDescriptionHelpFormatter,
+                      argparse.ArgumentDefaultsHelpFormatter):
+    '''
+    Combine the formatters to have a more informative help message.
+    '''
 
 def cli_parse():
     """
@@ -30,7 +35,7 @@ def cli_parse():
     parser = argparse.ArgumentParser(
         prog='xplot',
         epilog=xplot.__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=CustomFormatter,
         allow_abbrev=False)
 
     parser.add_argument('-v', '--version', action='version', version='%(prog)s '+xplot.__version__)
@@ -50,12 +55,11 @@ def cli_parse():
     # structure options
     parser.add_argument('-r','--rotations',
                         type=str,
-                        default='',
-                        help="List of rotations for the visualization, e.g. 10z,-90x. "\
-                            "Default = top view. "\
+                        default='0x,0y,0z',
+                        help="List of rotations for the visualization, where 0x,0y,0z = top view "\
                             "Presets for front view: front (= -90x), front2 (90z,-90x). "\
                             "If the first rotation has a negative angle, preceed it "
-                            "with a dummy rotation, e.g. 0z,-90x. ")
+                            "with a dummy rotation, e.g. 0z,-90x ")
     parser.add_argument('-s','--supercell',
                     nargs = 3,
                     type=_positive_int,
@@ -77,14 +81,18 @@ def cli_parse():
                         type=str,
                         choices=['none', 'single', 'multiple'],
                         default='single',
-                        help='Draw bonds between atoms. Options: none, single (default), multiple.')
+                        help='Draw bonds between atoms.')
 
     # color and style options
     parser.add_argument('-dc','--depth-cueing',
                     nargs='?',
                     type=_positive_float,
                     const=1.0,
-                    help='Enable depth cueing. Optional parameter: intensity (>0, default=1).')
+                    help='Enable depth cueing. Optional parameter: intensity (>0).')
+    parser.add_argument('-hm', '--highlight-mol',
+                    action='store_true',
+                    default=False,
+                    help='Highlight the molecule (draw atoms in a different color).')
     parser.add_argument('-cc', '--colorcode',
                     type=str,
                     choices=['forces', 'magmoms', 'coordnum'],
@@ -100,6 +108,19 @@ def cli_parse():
                     choices=['forces', 'magmoms'],
                     help='''Draw arrows representing the vectors,
                     with lenghth proportional to the magnitude.''')
+    parser.add_argument('-chgfm', '--chg-format',
+                    type=str,
+                    choices=['cube', 'vasp'],
+                    default='cube',
+                    help='''Format of the charge density file.
+                    Options: 'cube' or 'vasp' (CHGCAR/CHG).''')
+    parser.add_argument('-chg', '--chg-file',
+                    type=str,
+                    help="Path to the charge density file.")
+    parser.add_argument('-iso', '--chg-iso-threshold',
+                    type=_positive_float,
+                    help='''Iso-surface threshold for the charge density.
+                    If not specified, VESTA default is used''')
 
     # rendering options
     parser.add_argument('-w', '--width-res',
@@ -119,7 +140,7 @@ def cli_parse():
     parser.add_argument('-f', '--framerate',
                     type=float,
                     default=10.0,
-                    help='Framerate of the movie (frames per second). Default = 10.')
+                    help='Framerate of the movie (frames per second).')
 
 
 

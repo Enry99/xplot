@@ -16,6 +16,12 @@
     "bond_line_width" : 0.15,
     "cell_line_width"  : 0,
 
-    "povray_old_style" : false
+    "povray_old_style" : false,
+
+    "color_scheme" : "jmol",
+
+    "nontransparent_atoms" : [0,1],
+
+    "mol_indices" : [0,1,2,3]
 
 }

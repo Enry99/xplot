@@ -17,7 +17,7 @@ Module to render an image of an Atoms object using POVray or ASE renderer.
 """
 
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 import shutil
 import os
 from pathlib import Path
@@ -25,33 +25,32 @@ from pathlib import Path
 import numpy as np
 from ase.io.pov import get_bondpairs, set_high_bondorder_pairs
 from ase.data import covalent_radii
-from ase.data.colors import jmol_colors
+
 from ase.io import write
 from ase.io.utils import PlottingVariables
-from ase.io.pov import POVRAY
+from ase.io.pov import POVRAY, POVRAYIsosurface
 from ase.geometry.geometry import get_layers
 from ase.build.tools import sort
 
-from xplot.settings import vesta_colors
+
+from xplot.settings import CustomSettings
 import xplot.ase_custom.povray # monkey patch for povray. pylint: disable=unused-import
-from xplot.settings import (
-    ATOMIC_RADIUS_DEFAULT, BOND_RADIUS_DEFAULT,
-    BOND_LINE_WIDTH_DEFAULT, CELL_LINE_WIDTH_DEFAULT)
 
 if TYPE_CHECKING:
     from ase import Atoms
     from xplot.ase_custom import AtomsCustom
 
 
-def _get_colorcoded_colors(atoms: Atoms, colorcode: str, ccrange : list | None = None) -> list:
+
+def _get_colorcoded_colors(atoms: Atoms, quantity: str, ccrange : list | None = None) -> list:
     """
-    Get colors for atoms based on the specified colorcode.
+    Get colors for atoms based on the specified quantity.
 
     Parameters
     ----------
     atoms : Atoms
         Atoms object containing the atomic structure.
-    colorcode : str
+    quantity : str
         The property to color the atoms by. Options are 'forces', 'magmoms', 'coordnum'.
     ccrange : list, optional
         Range of values for color coding. If None, the range is automatically set to the
@@ -67,38 +66,38 @@ def _get_colorcoded_colors(atoms: Atoms, colorcode: str, ccrange : list | None =
     from matplotlib import colormaps, cm  #matplotlib==3.9.0 # pylint: disable=import-outside-toplevel
     from matplotlib.colors import Normalize # pylint: disable=import-outside-toplevel
 
-    if colorcode == 'forces':
+    if quantity == 'forces':
         try:
-            quantity = np.linalg.norm(atoms.get_forces(), axis=1)
+            values = np.linalg.norm(atoms.get_forces(), axis=1)
         except Exception as exc:
             raise ValueError("Forces are not present.") from exc
         cmap = colormaps.get_cmap('Blues')
 
-    elif colorcode == 'magmoms':
+    elif quantity == 'magmoms':
         try:
-            quantity = atoms.get_magnetic_moments()
+            values = atoms.get_magnetic_moments()
         except Exception as exc:
             raise ValueError("Magnetic moments are not present.") from exc
         cmap = colormaps.get_cmap('coolwarm')
 
-    elif colorcode == 'coordnum':
+    elif quantity == 'coordnum':
         from ase.neighborlist import NeighborList, natural_cutoffs # pylint: disable=import-outside-toplevel
         cutoffs = natural_cutoffs(atoms, mult=1.3)
         nl = NeighborList(cutoffs, skin=0, self_interaction=False, bothways=True)
         nl.update(atoms)
         connmat = nl.get_connectivity_matrix()
-        quantity = [connmat[idx].count_nonzero() for idx in range(len(atoms))]
+        values = [connmat[idx].count_nonzero() for idx in range(len(atoms))]
         cmap = colormaps.get_cmap('viridis_r')
     else:
-        raise ValueError("Invalid colorcode.")
+        raise ValueError("Invalid quantity for colorcoding.")
 
     if ccrange is not None:
         vmin, vmax = ccrange[0], ccrange[1]
     else:
-        vmin, vmax = min(quantity), max(quantity)
+        vmin, vmax = min(values), max(values)
     norm = Normalize(vmin=vmin, vmax=vmax)
     scalar_map = cm.ScalarMappable(norm=norm, cmap=cmap)
-    colors = [scalar_map.to_rgba(q)[:3] for q in quantity]
+    colors = [scalar_map.to_rgba(q)[:3] for q in values]
 
     return colors
 
@@ -190,83 +189,27 @@ def _calculate_bondorder_pairs(atoms: Atoms, mol_indices : list[int]) -> dict:
     return high_bondorder_pairs
 
 
-def _get_isosurfaces(filename, format='cube', threshold=None):
-    """
-    Get isosurfaces from a file in cube format.
+def render_image(atoms: 'Atoms | AtomsCustom',      ## used
+                outfile: str,                       ## used
+                custom_settings: CustomSettings,
+                rotations: str = '',
+                supercell: Optional[list] = None,   ## used
+                wrap: bool = False,                 ## used
+                range_cut: Optional[tuple] = None,  ## used
+                cut_vacuum: bool = False,           ## used
+                bonds: str = 'single',
+                depth_cueing: Optional[float] = None,
+                highlight_mol: bool = False,
+                colorcode: Optional[str] = None,    ## used
+                ccrange: Optional[list] = None,     ## used
+                arrows: Optional[str] = None,
+                chg_grid: Optional[np.ndarray] = None,
+                chg_iso_threshold: Optional[float] = None,
+                width_res: Optional[int] = 700,
+                povray: bool = True,
+                transl_vector: Optional[list[float]] = None, ## used
+                mol_indices: Optional[list] = None):         ## used
 
-    Parameters
-    ----------
-    filename : str
-        Path to the file containing the isosurfaces.
-    format : str, optional
-        Format of the file. Default is 'cube'.
-    threshold : float, optional
-        Threshold value for the isosurfaces.
-        If None, a default value is used (as in VESTA).
-
-    Returns
-    -------
-    list
-        List of isosurfaces.
-    """
-
-    # data_dict = read("chargediff.cube", read_data=True, full_output=True)
-    # density_grid = np.abs(data_dict["data"])
-
-    from ase.calculators.vasp import VaspChargeDensity
-    vcd = VaspChargeDensity('CHGCAR')
-
-    # convert volume in Angstrom^3 to bohr^3
-    density_grid = np.array(vcd.chg) * (0.529177249 ** 3)
-
-    print("min:", np.min(density_grid))
-    print("max:", np.max(density_grid))
-
-
-    density_grid = np.abs(density_grid)
-    print(f"Density grid mean + 2 * std: {np.mean(density_grid) + 2 * np.std(density_grid)}")  # VESTA DEFAULT ISOSURFACE
-
-
-    density_grid = data_dict["data"]
-    print(density_grid.shape)
-    density_grid = zoom(density_grid, 2, order=3)
-    print(density_grid.shape)
-
-    iso_positive = POVRAYIsosurface.from_POVRAY(
-        povray=pov_obj,
-        density_grid=density_grid,
-        cut_off=ISO_CUTOFF,
-        color=(0.80, 0.80, 0.0, 0.3))
-
-    iso_negative = POVRAYIsosurface.from_POVRAY(
-        povray=pov_obj,
-        density_grid=density_grid,
-        cut_off=-ISO_CUTOFF,
-        color=(0.00, 0.80, 0.80, 0.3))
-
-
-
-
-def render_image(*,
-                 atoms : Atoms | AtomsCustom,
-                 outfile : str,
-                 rotations : str = '',
-                 supercell : list | None = None,
-                 wrap : bool = False,
-                 range_cut : tuple | None = None,
-                 cut_vacuum : bool = False,
-                 bonds : str = 'single',
-                 depth_cueing : float | None = None,
-                 highlihgt_mol : bool = False,
-                 colorcode : str | None = None,
-                 ccrange : list | None = None,
-                 arrows : str | None = None,
-                 width_res : int | None = 700,
-                 povray : bool = True,
-                 transl_vector : list[float] | None = None,
-                 mol_indices : list | None = None,
-                 custom_settings : dict | None = None,
-                 **kwargs):
     """
     Render an image of an Atoms object using POVray or ASE renderer.
 
@@ -276,6 +219,8 @@ def render_image(*,
         Atoms object to render.
     outfile : str
         Path to the output file.
+    custom_settings : CustomSettings
+        Custom settings for rendering, including colors, radii, and other parameters.
     rotations : str, optional
         String with the rotations to apply to the image. Default is ''.
     supercell : list | None, optional
@@ -302,6 +247,12 @@ def render_image(*,
     arrows : str | None, optional
         If not None, draw arrows for the specified quantity.
         Options are 'forces', 'magmoms' and 'coordnum'. Default is None.
+    chg_grid : np.ndarray | None, optional
+        Charge density grid to use for isosurface rendering.
+        If None, no isosurface is rendered. Default is None.
+    chg_iso_threshold : float | None, optional
+        Iso-surface threshold for the charge density.
+        If None, VESTA default is used (mean(|rho|) + 2 * std(|rho|)). Default is None.
     width_res : int | None, optional
         Width resolution of the output image. Default is 700.
     povray : bool, optional
@@ -311,10 +262,6 @@ def render_image(*,
         Translation vector for the molecule. Default is None.
     mol_indices : list | None, optional
         List with the indices of the atoms to consider as the molecule. Default is None.
-    **kwargs : dict, optional
-        additional settings, including:
-        'atomic_colors', 'color_scheme', 'atomic_radius', 'bond_radius', 'bond_line_width',
-        'cell_line_width', 'nontransparent_atoms'. Default is None.
     """
 
     atoms = atoms.copy() #do not modify the original object
@@ -327,6 +274,9 @@ def render_image(*,
 
     if wrap:
         atoms.wrap()
+
+    if mol_indices is None and custom_settings.mol_indices is not None:
+        mol_indices = custom_settings.mol_indices
 
     if supercell is not None:
         if mol_indices is not None:
@@ -349,41 +299,26 @@ def render_image(*,
         atoms.cell[2,2] = range_cut[1] - range_cut[0] #set the new cell height
         atoms.pbc=[True,True,False] #to avoid periodic bonding in z direction
 
-    #set custom colors if present ################################################
-
-    if custom_settings is not None:
-        USER_COLORS       = custom_settings.get("atomic_colors", {})
-        MOL_COLORS        = custom_settings.get("molecule_colors", {})
-        ATOMIC_RADIUS     = custom_settings.get("atomic_radius", ATOMIC_RADIUS_DEFAULT)
-        BOND_RADIUS       = custom_settings.get("bond_radius", BOND_RADIUS_DEFAULT)
-        BOND_LINE_WIDTH   = custom_settings.get("bond_line_width", BOND_LINE_WIDTH_DEFAULT)
-        CELLLINEWIDTH     = custom_settings.get("cell_line_width", 0)
-    else:
-        USER_COLORS  = {}
-        MOL_COLORS   = {}
-        ATOMIC_RADIUS     = ATOMIC_RADIUS_DEFAULT
-        BOND_RADIUS       = BOND_RADIUS_DEFAULT
-        BOND_LINE_WIDTH   = BOND_LINE_WIDTH_DEFAULT
-        CELLLINEWIDTH     = 0
+    #set custom colors if present ###############################################
 
 
     if colorcode is None:
         #first, apply those of jmol
-        colors = [ ATOM_COLORS[atom.number] for atom in atoms]
+        colors = [ custom_settings.color_scheme[atom.number] for atom in atoms]
 
         #then, substitute user-defined colors
         if isinstance(atoms, AtomsCustom):
-            species = atoms.get_custom_labels()
+            species = atoms.custom_labels
         else:
             species = atoms.get_chemical_symbols()
 
         for i, sp in enumerate(species):
             if mol_indices is not None and i in mol_indices:
-                if sp in MOL_COLORS:
-                    colors[i] = MOL_COLORS[sp]
+                if sp in custom_settings.molecule_colors:
+                    colors[i] = custom_settings.molecule_colors[sp]
                     continue
-            if sp in USER_COLORS:
-                colors[i] = USER_COLORS[sp]
+            if sp in custom_settings.atomic_colors:
+                colors[i] = custom_settings.atomic_colors[sp]
     else:
         colors = _get_colorcoded_colors(atoms, colorcode, ccrange)
 
@@ -407,12 +342,28 @@ def render_image(*,
 
     if width_res is None:
         width_res = 700
-        # I used 3000 in Xsorb paper. From 1500 is still quite good.
-        # 2000 maybe best compromise (still very high res)
+        # I used 3000 in Xsorb paper. > 1500 is still very good.
 
     if povray: #use POVray renderer (high quality, CPU intensive)
         config_copy = atoms.copy()
         #config_copy.set_pbc([0,0,0]) #to avoid drawing bonds with invisible replicas
+
+        if mol_indices is not None and highlight_mol:
+            textures = ['ase3' if i in mol_indices else 'pale' for i in range(len(atoms))]
+        else:
+            textures = None
+
+        if custom_settings.nontransparent_atoms:
+            transmittances = []
+            textures = []
+            trans_map = {True: 0.0, False: 0.8}
+            texture_map = {True: 'ase3', False: 'pale'}
+            for i in range(len(atoms)):
+                nontrasp = i in custom_settings.nontransparent_atoms
+                transmittances.append(trans_map[nontrasp])
+                textures.append(texture_map[nontrasp])
+        else:
+            transmittances = None
 
         if 'x' not in rotations and 'y' not in rotations:
             dz = atoms.cell[2,2] - atoms.positions[:,2].max() + 0.1
@@ -420,39 +371,24 @@ def render_image(*,
             dz = 0
         camera_dist = max(2, dz)
 
-        if mol_indices is not None and highlihgt_mol:
-            textures = ['ase3' if i in mol_indices else 'pale' for i in range(len(atoms))]
-        else:
-            textures = None
-
-        if custom_settings and custom_settings.get('nontransparent_atoms') is not None:
-            transmittances = []
-            textures = []
-            trans_map = {True: 0.0, False: 0.8}
-            texture_map = {True: 'ase3', False: 'pale'}
-            for i in range(len(atoms)):
-                nontrasp = i in custom_settings.get('nontransparent_atoms')
-                transmittances.append(trans_map[nontrasp])
-                textures.append(texture_map[nontrasp])
-        else:
-            transmittances = None
-
         povray_settings=dict(canvas_width=width_res,
-                                celllinewidth=CELLLINEWIDTH,
+                                celllinewidth=custom_settings.cell_line_width,
                                 transparent=False,
                                 camera_type='orthographic',
                                 camera_dist=camera_dist,
                                 textures=textures,
                                 transmittances=transmittances,
-                                bondlinewidth=BOND_LINE_WIDTH,
+                                bondlinewidth=custom_settings.bond_line_width,
                             )
-        if not nobonds:
-            bondatoms = get_bondpairs(config_copy, radius=BOND_RADIUS)
-            high_bondorder_pairs = _calculate_bondorder_pairs(config_copy)
-            bondpairs = set_high_bondorder_pairs(bondpairs, high_bondorder_pairs)
-        else:
+        if bonds == 'none':
             bondatoms = None
+        else:
+            bondatoms = get_bondpairs(config_copy, radius=custom_settings.bond_radius)
+            if bonds == 'multiple':
+                high_bondorder_pairs = _calculate_bondorder_pairs(config_copy)
+                bondatoms = set_high_bondorder_pairs(bondatoms, high_bondorder_pairs)
         povray_settings['bondatoms'] = bondatoms
+
 
         if depth_cueing is not None:
             constant_fog_height = _calculate_ground_fog_height(atoms, mol_indices)
@@ -463,22 +399,36 @@ def render_image(*,
 
 
         pvars = PlottingVariables(atoms,
-            radii=ATOMIC_RADIUS,
+            radii=custom_settings.atomic_radius,
             rotation=rotations,
-            show_unit_cell=3,
+            colors=colors,
+            arrows_type = arrows, # monkey patchd ase.utils.PlottingVariables __init__ in ase_custom
+            show_unit_cell=3,  #IMPORTANT: keep the blank space around the cell fixed in trajs
         )
         pov_obj = POVRAY.from_PlottingVariables(pvars, **povray_settings)
 
+
+        if chg_grid is not None:
+            if chg_iso_threshold is None:
+                # VESTA default isosurface: mean(|rho|) + 2 * std(|rho|)
+                chg_iso_threshold = np.mean(np.abs(chg_grid)) + 2 * np.std(np.abs(chg_grid))
+
+            iso_positive = POVRAYIsosurface.from_POVRAY(
+                povray=pov_obj,
+                density_grid=chg_grid,
+                cut_off=chg_iso_threshold,
+                color=(0.80, 0.80, 0.0, 0.3))
+
+            iso_negative = POVRAYIsosurface.from_POVRAY(
+                povray=pov_obj,
+                density_grid=chg_grid,
+                cut_off=-chg_iso_threshold,
+                color=(0.00, 0.80, 0.80, 0.3))
+
+
         #Do the actual rendering
-        write(f'{label}.pov',
-            atoms,
-            format='pov',
-            radii = ATOMIC_RADIUS,
-            rotation=rotations,
-            colors=colors,
-            povray_settings=povray_settings,
-            arrows_type = arrows
-        ).render()
+        pov_obj.write().render()
+
         os.remove(f'{label}.pov')
         os.remove(f'{label}.ini')
 
@@ -489,24 +439,11 @@ def render_image(*,
         write(outfile,
               atoms,
               format='png',
-              radii = ATOMIC_RADIUS,
+              radii = custom_settings.atomic_radius,
               rotation=rotations,
               colors=colors,
               maxwidth=width_res,
               scale=100)
-
-
-# TODO:
-# -introdurre opzione nel file di config.json per colorcode VESTA (prendere da pymatgen) sia in plot sites che in generazione immagini (per vasp users)
-# -solved autobox in povray with ase 3.25:
-#     pvars = PlottingVariables(atoms, scale=1.0, radii=0.6, rotation='-90x', show_unit_cell=3)
-#     pov_obj = POVRAY.from_PlottingVariables(pvars, **povray_settings)
-# XPLOT: vesta default isosurface: mean(|rho|) + n * std(|rho|)  (n=2 o 3)
-#     from ase.calculators.vasp import VaspChargeDensity
-#     vcd = VaspChargeDensity('CHGCAR')
-#     density_grid = np.abs(vcd.chg)
-#     density_grid = density_grid * (0.529177249 ** 3) # convert volume in Angstrom^3 to bohr^3
-#
 
 # TODO:
 # -do all manual tests

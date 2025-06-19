@@ -28,25 +28,15 @@ def main():
     # parse command line arguments
     args = cli_parse()
 
-
     # import here to not impact time to display cli help
     from xplot.functions import setup_rendering #pylint: disable=import-outside-toplevel
-    from xplot.settings import read_custom_settings #pylint: disable=import-outside-toplevel
-
-    #try to read custom settings
-    custom_settings = read_custom_settings()
-    if custom_settings.get("povray_old_style", None):
-        os.environ['POVRAY_OLD_STYLE'] = '1'
-
-
-    setup_rendering(filename = args.filename,
-                    index = args.index,
-                    movie = args.movie,
-                    framerate = args.framerate,
-                    custom_settings = custom_settings,
-                    outfile = args.output,
-                    rotations = args.rotations,
-                    supercell = args.supercell,
+    setup_rendering(filename=args.filename,
+                    index=args.index,
+                    outfile=args.output,
+                    movie=args.movie,
+                    framerate=args.framerate,
+                    rotations=args.rotations,
+                    supercell=args.supercell,
                     wrap=args.wrap,
                     depth_cueing=args.depth_cueing,
                     range_cut=args.range_cut,
@@ -54,7 +44,11 @@ def main():
                     colorcode=args.colorcode,
                     ccrange=args.ccrange,
                     arrows=args.arrows,
-                    nobonds = args.nobonds,
-                    povray = not args.nopov,
-                    width_res = args.width_resolution,
+                    bonds=args.bonds,
+                    highlight_mol=args.highlight_mol,
+                    chg_format=args.chg_format,
+                    chg_file=args.chg_file,
+                    chg_iso_threshold=args.chg_iso_threshold,
+                    povray=args.povray,
+                    width_res=args.width_res,
                 )
