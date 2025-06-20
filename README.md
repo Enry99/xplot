@@ -22,11 +22,16 @@ pip install .
 - [povray](https://www.povray.org/) to generate high-quality images
 - [ffmpeg](https://ffmpeg.org/) to generate movies of trajectories
 
-These can be installed on Linux systems with:
+These can be easily installed on Linux systems with:
 
 ```sh
 sudo apt install povray ffmpeg
 ```
+if you have administrator privileges, or with conda (Conda/Miniconda/Mamba/Micromamba) with:
+```sh
+[conda] install povray ffmpeg
+```
+where `[conda]` can be replaced with `mamba`, `micromamba` or `miniconda` depending on your setup.
 
 While povray is not strictly necessary (you can use the option -nopov in the CLI) and the images can be generated also with ASE internal renderer based on matplotlib, the image quality and most of the functionalities of this code are strongly limited, and can be useful mostly as a fast way to preview the structures.
 
