@@ -162,8 +162,11 @@ def setup_rendering(filename : str,
             success = False
 
             # first, try to use ffmpeg:
-            ffmpeg_cmd = f'ffmpeg -y -framerate {framerate} -i rendered_frames/{label}_%05d.png '\
-                f'-vcodec libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -pix_fmt yuv420p {label}.mp4'
+            ffmpeg_cmd = f'ffmpeg -y -framerate {framerate} '\
+                f'-i rendered_frames/{label}_%05d.png '\
+                '-vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" '\
+                f'-c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p '\
+                f'{label}.mp4'
             try:
                 ret = subprocess.run([ffmpeg_cmd], check=True, capture_output=True, shell=True)
                 success = ret.returncode == 0
@@ -171,12 +174,12 @@ def setup_rendering(filename : str,
                 logger.error('ffmpeg failed: %s. trying to use imagemagick...', ffmpeg_error)
                 # if ffmpeg fails, try imagemagick:
                 try:
-                    ret = subprocess.run(['convert', '-delay', str(1000 // framerate),
-                                        '-loop', '0', f'rendered_frames/{label}_*.png',
-                                        f'{label}.gif'], check=True, capture_output=True, shell=True)
+                    convert_cmd = f'convert -delay {1000 // framerate} '\
+                        f'-loop 0 rendered_frames/{label}_*.png {label}.gif'
+                    ret = subprocess.run([convert_cmd], check=True, capture_output=True, shell=True)
                     success = ret.returncode == 0
                 except (subprocess.CalledProcessError, FileNotFoundError) as imagemagick_error:
-                    logger.error('Imagemagick also failed')
+                    logger.error('Imagemagick also failed: %s', imagemagick_error)
 
             if success:
                 logger.info('Movie generated.')
