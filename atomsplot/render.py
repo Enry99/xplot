@@ -316,7 +316,7 @@ def render_image(atoms: 'Atoms | AtomsCustom',
         wrap = True
 
     if wrap:
-        atoms.wrap(pretty_translation=True) #wrap the atoms to the unit cell
+        atoms.wrap() #pretty_translation=True) #wrap the atoms to the unit cell
 
     if mol_indices is None and custom_settings.mol_indices is not None:
         mol_indices = custom_settings.mol_indices
@@ -450,7 +450,7 @@ def render_image(atoms: 'Atoms | AtomsCustom',
 
 
         if depth_cueing is not None:
-            constant_fog_height = _calculate_ground_fog_height(atoms) #, mol_indices)
+            constant_fog_height = _calculate_ground_fog_height(atoms, mol_indices)
 
             povray_settings['depth_cueing'] = True
             povray_settings['cue_density'] = depth_cueing
