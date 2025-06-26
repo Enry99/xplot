@@ -1,1 +1,0 @@
-atomsplot graphene.xyz -dc  -s 2 2 1

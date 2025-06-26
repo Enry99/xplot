@@ -41,6 +41,7 @@ def main():
                     wrap=args.wrap,
                     hide_cell=args.hide_cell,
                     depth_cueing=args.depth_cueing,
+                    fog_offset=args.fog_offset,
                     range_cut=args.range_cut,
                     cut_vacuum=args.cut_vacuum,
                     colorcode=args.colorcode,

@@ -1,0 +1,1 @@
+atomsplot Si_DLC.pwi -dc  # with molecule colors (and indices) set in image_settings.json

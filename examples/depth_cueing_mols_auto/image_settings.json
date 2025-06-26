@@ -1,5 +1,7 @@
 {
 
+    "cell_line_width": 0,
+
     "atomic_colors" :
         {
             "H"  : [1.00, 1.00, 1.00],

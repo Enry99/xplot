@@ -101,6 +101,13 @@ def cli_parse():
                     type=_positive_float,
                     const=1.0,
                     help='Enable depth cueing. Optional parameter: intensity (>0).')
+    parser.add_argument('-fo', '--fog-offset',
+                    type=float,
+                    nargs='?',
+                    const=2.0,
+                    help='''Offset in Angstrom for where depth cueing starts,
+                    starting from the camera position (level of the topmost atom).
+                    If the argument is used with no value, the default is 2.''')
     # parser.add_argument('-hm', '--highlight-mol',
     #                 action='store_true',
     #                 default=False,
