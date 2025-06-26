@@ -13,6 +13,7 @@
 #                added pymatgen's CovalentBondNN for high bond order pairs.
 #                added isosurface rendering for charge density grids.
 #                added vesta/cpk colors.
+# - 27 Jun 2025: improved fog height calculation for slab/molecule systems.
 
 
 """
@@ -526,10 +527,3 @@ def render_image(atoms: 'Atoms | AtomsCustom',
               colors=colors,
               maxwidth=width_res,
               scale=100)
-
-# TODO:
-# -do all manual tests
-# -setup pyproject.toml
-# -setup README.md
-# try pip install -e . in a new virtualenv
-# publish on pypi
