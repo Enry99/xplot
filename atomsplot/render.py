@@ -14,6 +14,7 @@
 #                added isosurface rendering for charge density grids.
 #                added vesta/cpk colors.
 # - 27 Jun 2025: improved fog height calculation for slab/molecule systems.
+# - 03 Jul 2025: now forces/magmoms work even if structure is changed (e.g. supercell).
 
 
 """
@@ -27,13 +28,13 @@ from typing import Optional, TYPE_CHECKING
 import shutil
 import os
 from pathlib import Path
+from copy import deepcopy
 
 import numpy as np
 from scipy.ndimage import gaussian_filter1d
 from ase.io.pov import get_bondpairs, set_high_bondorder_pairs
 from ase.data.vdw_alvarez import vdw_radii
 
-from ase.io import write
 from ase.io.utils import PlottingVariables
 from ase.io.pov import POVRAY, POVRAYIsosurface
 from ase.geometry.geometry import get_layers
@@ -334,49 +335,65 @@ def render_image(atoms: 'Atoms | AtomsCustom',
         List with the indices of the atoms to consider as the molecule. Default is None.
     """
 
-    calc = atoms.calc
-    atoms = atoms.copy() #do not modify the original object
+    # copy the atoms object to avoid modifying the original one
+    calc = deepcopy(atoms.calc)
+    atoms = atoms.copy()
     atoms.calc = calc #keep the calculator, if present
 
-    label = Path(outfile).stem
+    # set mol_indices
+    if mol_indices is None and custom_settings.mol_indices is not None:
+        mol_indices = custom_settings.mol_indices
 
+    # STRUCTURAL MODIFICATIONS ##########################################
+    modify_calc_atoms = False
     if transl_vector is not None:
         atoms.translate(transl_vector)
+        modify_calc_atoms = True
         wrap = True
 
     if wrap:
         atoms.wrap() #pretty_translation=True) #wrap the atoms to the unit cell
-
-    if mol_indices is None and custom_settings.mol_indices is not None:
-        mol_indices = custom_settings.mol_indices
+        modify_calc_atoms = True
 
     if supercell is not None:
         if mol_indices is not None:
             # get new mol_indces after supercell expansion
-            mol_indices = [i + j * len(atoms) for i in mol_indices for j in range(np.prod(supercell))]
+            mol_indices = [i + j * len(atoms) for i in mol_indices \
+                           for j in range(np.prod(supercell))]
 
-        #     slab_indices = [i for i in range(len(atoms)) if i not in mol_indices]
-        #     slab = atoms[slab_indices]
-        #     slab *= supercell
-        #     atoms = slab + atoms[mol_indices]
-        #     mol_indices = [i + len(slab) for i in range(len(mol_indices))]
-        # else:
         atoms *= supercell
+        modify_calc_atoms = True
+
+        if atoms.calc is not None and atoms.calc.results is not None:
+            # repeat values to match the replicated atoms
+            if 'forces' in atoms.calc.results:
+                atoms.calc.results['forces'] = np.tile(atoms.calc.results['forces'],
+                                                    (np.prod(supercell), 1))
+            if 'magmoms' in atoms.calc.results:
+                atoms.calc.results['magmoms'] = np.tile(atoms.calc.results['magmoms'],
+                                                       (np.prod(supercell), 1))
 
     if cut_vacuum:
         atoms.translate([0,0,atoms.positions[:,2].min()]) #shift to z=0
         atoms.cell[2,2] = atoms.positions[:,2].max() + 1
         atoms.pbc=[True,True,False] #to avoid periodic bonding in z direction
+        modify_calc_atoms = True
 
     if range_cut is not None:
         del atoms[[atom.index for atom in atoms if atom.z < range_cut[0] or atom.z > range_cut[1]]]
         atoms.translate([0,0,-range_cut[0]]) #shift the atoms to the origin of the new cell
         atoms.cell[2,2] = range_cut[1] - range_cut[0] #set the new cell height
         atoms.pbc=[True,True,False] #to avoid periodic bonding in z direction
+        modify_calc_atoms = True
 
-    #set custom colors if present ###############################################
+    if modify_calc_atoms:
+        if atoms.calc is not None:
+            atoms.calc.atoms = atoms #update the calculator with the new positions
+
+    # END STRUCTURAL MODIFICATIONS ######################################
 
 
+    # COLOR SETTINGS ####################################################
     if colorcode is None:
         #first, apply those of jmol
         colors = [ custom_settings.color_scheme[atom.number] for atom in atoms]
@@ -397,28 +414,13 @@ def render_image(atoms: 'Atoms | AtomsCustom',
     else:
         colors = _get_colorcoded_colors(atoms, colorcode, ccrange)
 
-
-    ############################################################################
-    # OLD depth cueing
-    #fading color for lower layers in top view
-    #if (depth_cueing is not None):
-    #    zmax = max([atom.z for atom in atoms])
-    #    zmin = min([atom.z for atom in atoms])
-    #    delta = zmax - zmin
-    #    if depth_cueing < 0:
-    #        raise ValueError("depth_cueing_intensity must be >=0.")
-    #    for atom in atoms:
-    #        r,g,b = colors[atom.index] + (np.array([1,1,1]) - colors[atom.index])*(zmax - atom.z)/delta * depth_cueing
-    #        if r>1: r=1
-    #        if g>1: g=1
-    #        if b>1: b=1
-    #        colors[atom.index] = [r,g,b]
-    ############################################################################
+    # END COLOR SETTINGS ################################################
 
     if width_res is None:
         width_res = 700
         # I used 3000 in Xsorb paper. > 1500 is still very good.
 
+    # POVRAY ############################################################
     if povray: #use POVray renderer (high quality, CPU intensive)
         pvars = PlottingVariables(atoms,
             scale=1,
@@ -485,6 +487,22 @@ def render_image(atoms: 'Atoms | AtomsCustom',
             povray_settings['cue_density'] = depth_cueing
             povray_settings['constant_fog_height'] = -fog_offset
 
+            ############################################################################
+            # OLD depth cueing
+            #fading color for lower layers in top view
+            #if (depth_cueing is not None):
+            #    zmax = max([atom.z for atom in atoms])
+            #    zmin = min([atom.z for atom in atoms])
+            #    delta = zmax - zmin
+            #    if depth_cueing < 0:
+            #        raise ValueError("depth_cueing_intensity must be >=0.")
+            #    for atom in atoms:
+            #        r,g,b = colors[atom.index] + (np.array([1,1,1]) - colors[atom.index])*(zmax - atom.z)/delta * depth_cueing
+            #        if r>1: r=1
+            #        if g>1: g=1
+            #        if b>1: b=1
+            #        colors[atom.index] = [r,g,b]
+            ############################################################################
 
 
         pov_obj = POVRAY.from_PlottingVariables(pvars, **povray_settings)
@@ -509,6 +527,9 @@ def render_image(atoms: 'Atoms | AtomsCustom',
 
             pov_obj.isosurfaces = [iso_positive, iso_negative]
 
+        #set the prefix for the output files
+        label = Path(outfile).stem
+
         #Do the actual rendering
         pov_obj.write(f'{label}.pov').render()
 
@@ -518,9 +539,9 @@ def render_image(atoms: 'Atoms | AtomsCustom',
         if outfile != f'{label}.png': #move the output file to the desired location
             shutil.move(f'{label}.png', outfile)
 
+    # END POVRAY ####################################################
     else: # use ASE renderer (low quality, does not draw bonds)
-        write(outfile,
-              atoms,
+        atoms.write(outfile,
               format='png',
               radii = custom_settings.atomic_radius,
               rotation=rotations,
