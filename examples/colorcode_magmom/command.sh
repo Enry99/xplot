@@ -1,2 +1,2 @@
-atomsplot OUTCAR -r front --colorcode magmoms  --bonds none -o magmoms_cc.png
-atomsplot OUTCAR -r front --bonds none --arrows magmoms --arrows-scale 1.5 -o magmoms_arrows.png   # with VESTA colors from json
+tomsplot OUTCAR -r front --colorcode magmoms --bonds none --cut-vacuum -o magmoms_cc.png
+atomsplot OUTCAR -r front --bonds none --arrows magmoms --arrows-scale 1.5 --cut-vacuum -o magmoms_arrows.png   # with VESTA colors from json

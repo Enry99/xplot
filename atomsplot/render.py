@@ -374,15 +374,15 @@ def render_image(atoms: 'Atoms | AtomsCustom',
                                                        (np.prod(supercell), 1))
 
     if cut_vacuum:
-        atoms.translate([0,0,atoms.positions[:,2].min()]) #shift to z=0
+        atoms.translate([0,0,1-atoms.positions[:,2].min()]) #shift to z=1
         atoms.cell[2,2] = atoms.positions[:,2].max() + 1
         atoms.pbc=[True,True,False] #to avoid periodic bonding in z direction
         modify_calc_atoms = True
 
     if range_cut is not None:
         del atoms[[atom.index for atom in atoms if atom.z < range_cut[0] or atom.z > range_cut[1]]]
-        atoms.translate([0,0,-range_cut[0]]) #shift the atoms to the origin of the new cell
-        atoms.cell[2,2] = range_cut[1] - range_cut[0] #set the new cell height
+        atoms.translate([0,0,-range_cut[0]+1]) #shift the atoms to the origin of the new cell
+        atoms.cell[2,2] = atoms.positions[:,2].max() + 1
         atoms.pbc=[True,True,False] #to avoid periodic bonding in z direction
         modify_calc_atoms = True
 
