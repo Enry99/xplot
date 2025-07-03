@@ -1,0 +1,1 @@
+atomsplot CHGDIFF.vasp -r 0x,-5z,-85x -b none --chg-upscale 3 --width-res 1600

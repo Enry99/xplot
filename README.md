@@ -120,6 +120,9 @@ Magnetic moments:
 
 ---
 
-Charge density isosurfaces:
+Charge density isosurfaces (+ transparent atoms):
 
-<img src="examples/isosurface/chargediff.png" alt="Charge density isosurface" width="300">
+<p float="left">
+    <img src="examples/isosurface/chargediff.png" alt="Charge density isosurface" width="300">
+    <img src="examples/isosurface_transparent_atoms/CHGDIFF.png" alt="Charge density isosurface" width="700">
+</p>
